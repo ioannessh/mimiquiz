@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: ./Dockerfile
-    container_name: quiz
+    container_name: ${APP_NAME}
     restart: always
     networks:
       miminet_network:

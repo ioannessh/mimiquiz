@@ -43,6 +43,35 @@ def external_url_for(endpoint, filename=None, **kwargs):
 
     return full_url
 
+def quiz_url_for(endpoint, filename=None, **kwargs):
+    base = os.environ.get('QUIZ_URL', 'localhost').rstrip('/')
+
+    if endpoint == 'static':
+        static_url = os.environ.get('STATIC_SERVER_URL', '/static').strip('/')
+        endpoint = static_url if static_url else 'static'
+
+    endpoint = endpoint.strip('/')
+    if filename is not None:
+        filename = filename.strip('/')
+        endpoint = f"{endpoint}/{filename}" if endpoint else filename
+
+    path = endpoint.lstrip('/')
+    query_string = urlencode(kwargs) if kwargs else ''
+
+    full_url = urljoin(base + '/', path)
+    if query_string:
+        parsed = urlparse(full_url)
+        full_url = urlunparse((
+            parsed.scheme,
+            parsed.netloc,
+            parsed.path,
+            parsed.params,
+            query_string,
+            parsed.fragment
+        ))
+
+    return full_url
+
 
 @jwt_required()
 def create_network():
@@ -151,14 +180,14 @@ def web_network():
         print(f"User ID: {user_id}; Net author: {net.author_id}; {user_id == net.author_id}")
     except:
         if net.share_mode:
-            return redirect(external_url_for('auth', filename='login.html', next=(external_url_for("web_network", guid=net.guid))))
+            return redirect(external_url_for('auth', filename='login.html', next=(quiz_url_for("web_network", guid=net.guid))))
         else:
-            return redirect(external_url_for('auth', filename='login.html', next=(url_for("web_network", guid=net.guid))))
+            return redirect(external_url_for('auth', filename='login.html', next=(quiz_url_for("web_network", guid=net.guid))))
 
     # If author is not user
     if str(net.author_id) != user_id:
         if net.share_mode:
-            return redirect(external_url_for('auth', filename='login.html', next=(external_url_for("web_network", guid=net.guid))))
+            return redirect(external_url_for('auth', filename='login.html', next=(quiz_url_for("web_network", guid=net.guid))))
         else:
             return redirect(url_for("home"))
 

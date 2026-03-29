@@ -77,7 +77,7 @@ app = Flask(
 app.config.update(
     JWT_SECRET_KEY=os.environ.get('JWT_SECRET_KEY', "secret-key"),
     JWT_TOKEN_LOCATION = ['cookies'],
-    JWT_COOKIE_DOMAIN = '.local.tst',
+    JWT_COOKIE_DOMAIN = f".{os.environ.get('BASE_DOMAIN', 'local.tst')}",
     JWT_COOKIE_SECURE = False,#True,
     JWT_COOKIE_CSRF_PROTECT = False,
     JWT_COOKIE_SAMESITE = None,
@@ -88,7 +88,7 @@ app.config.update(
 CORS(app,
      resources={
          r"/*": {
-             "origins": ["http://quiz.local.tst", "http://local.tst"],
+             "origins": os.environ.get('ALLOWED_HOSTS', ["http://quiz.local.tst", "http://local.tst"]),
              "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
              "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
              "supports_credentials": True,
