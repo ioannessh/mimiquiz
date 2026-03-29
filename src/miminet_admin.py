@@ -55,7 +55,7 @@ class MiminetAdminIndexView(AdminIndexView):
                 return True
             else:
                 return False
-        except Exception as e:
+        except Exception:
             return False
 
     def inaccessible_callback(self, name, **kwargs):

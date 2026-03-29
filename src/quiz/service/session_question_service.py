@@ -370,7 +370,7 @@ def answer_on_session_question(session_question_id: str, answer, user: User):
             for net, req, mods in prepared_task
         ]
 
-        networks_to_check = []
+        networks_to_check: list[tuple[str, str, str, str]] = []
         for network_json, req_json, modifications_json in prepared_task_json:
             try:
                 network_json = (

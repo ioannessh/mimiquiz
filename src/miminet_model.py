@@ -11,9 +11,7 @@ from sqlalchemy import (
     BigInteger,
     Text,
     Boolean,
-    TIMESTAMP,
     ForeignKey,
-    not_,
     inspect,
 )
 from werkzeug.security import generate_password_hash

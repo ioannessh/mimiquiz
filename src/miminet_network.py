@@ -15,60 +15,65 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_req
 
 
 def external_url_for(endpoint, filename=None, **kwargs):
-    base = os.environ.get('EXTERNAL_BASE_URL', 'localhost').rstrip('/')
+    base = os.environ.get("EXTERNAL_BASE_URL", "localhost").rstrip("/")
 
-    if endpoint == 'static':
-        static_url = os.environ.get('STATIC_SERVER_URL', '/static').strip('/')
-        endpoint = static_url if static_url else 'static'
+    if endpoint == "static":
+        static_url = os.environ.get("STATIC_SERVER_URL", "/static").strip("/")
+        endpoint = static_url if static_url else "static"
 
-    endpoint = endpoint.strip('/')
+    endpoint = endpoint.strip("/")
     if filename is not None:
-        filename = filename.strip('/')
+        filename = filename.strip("/")
         endpoint = f"{endpoint}/{filename}" if endpoint else filename
 
-    path = endpoint.lstrip('/')
-    query_string = urlencode(kwargs) if kwargs else ''
+    path = endpoint.lstrip("/")
+    query_string = urlencode(kwargs) if kwargs else ""
 
-    full_url = urljoin(base + '/', path)
+    full_url = urljoin(base + "/", path)
     if query_string:
         parsed = urlparse(full_url)
-        full_url = urlunparse((
-            parsed.scheme,
-            parsed.netloc,
-            parsed.path,
-            parsed.params,
-            query_string,
-            parsed.fragment
-        ))
+        full_url = urlunparse(
+            (
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path,
+                parsed.params,
+                query_string,
+                parsed.fragment,
+            )
+        )
 
     return full_url
 
+
 def quiz_url_for(endpoint, filename=None, **kwargs):
-    base = os.environ.get('QUIZ_URL', 'localhost').rstrip('/')
+    base = os.environ.get("QUIZ_URL", "localhost").rstrip("/")
 
-    if endpoint == 'static':
-        static_url = os.environ.get('STATIC_SERVER_URL', '/static').strip('/')
-        endpoint = static_url if static_url else 'static'
+    if endpoint == "static":
+        static_url = os.environ.get("STATIC_SERVER_URL", "/static").strip("/")
+        endpoint = static_url if static_url else "static"
 
-    endpoint = endpoint.strip('/')
+    endpoint = endpoint.strip("/")
     if filename is not None:
-        filename = filename.strip('/')
+        filename = filename.strip("/")
         endpoint = f"{endpoint}/{filename}" if endpoint else filename
 
-    path = endpoint.lstrip('/')
-    query_string = urlencode(kwargs) if kwargs else ''
+    path = endpoint.lstrip("/")
+    query_string = urlencode(kwargs) if kwargs else ""
 
-    full_url = urljoin(base + '/', path)
+    full_url = urljoin(base + "/", path)
     if query_string:
         parsed = urlparse(full_url)
-        full_url = urlunparse((
-            parsed.scheme,
-            parsed.netloc,
-            parsed.path,
-            parsed.params,
-            query_string,
-            parsed.fragment
-        ))
+        full_url = urlunparse(
+            (
+                parsed.scheme,
+                parsed.netloc,
+                parsed.path,
+                parsed.params,
+                query_string,
+                parsed.fragment,
+            )
+        )
 
     return full_url
 
@@ -177,17 +182,37 @@ def web_network():
     try:
         verify_jwt_in_request(optional=True)
         user_id = get_jwt_identity()
-        print(f"User ID: {user_id}; Net author: {net.author_id}; {user_id == net.author_id}")
-    except:
+        print(
+            f"User ID: {user_id}; Net author: {net.author_id}; {user_id == net.author_id}"
+        )
+    except Exception:
         if net.share_mode:
-            return redirect(external_url_for('auth', filename='login.html', next=(quiz_url_for("web_network", guid=net.guid))))
+            return redirect(
+                external_url_for(
+                    "auth",
+                    filename="login.html",
+                    next=(quiz_url_for("web_network", guid=net.guid)),
+                )
+            )
         else:
-            return redirect(external_url_for('auth', filename='login.html', next=(quiz_url_for("web_network", guid=net.guid))))
+            return redirect(
+                external_url_for(
+                    "auth",
+                    filename="login.html",
+                    next=(quiz_url_for("web_network", guid=net.guid)),
+                )
+            )
 
     # If author is not user
     if str(net.author_id) != user_id:
         if net.share_mode:
-            return redirect(external_url_for('auth', filename='login.html', next=(quiz_url_for("web_network", guid=net.guid))))
+            return redirect(
+                external_url_for(
+                    "auth",
+                    filename="login.html",
+                    next=(quiz_url_for("web_network", guid=net.guid)),
+                )
+            )
         else:
             return redirect(url_for("home"))
 
@@ -250,4 +275,3 @@ def web_network():
 
 def generate_image_uri(extension=".png"):
     return os.urandom(16).hex() + extension
-

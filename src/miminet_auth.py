@@ -27,6 +27,7 @@ def handle_needs_login():
     flash("Для выполнения этого действия необходимо войти.")
     return redirect(url_for("login_index", next=request.endpoint))
 
+
 def redirect_next_url(fallback):
     if "next_url" not in session:
         redirect(fallback)
@@ -42,11 +43,12 @@ def allowed_file(filename):
 
 
 def redirect_login():
-    return redirect(external_url_for('auth', filename='login.html', next=request.url))
+    return redirect(external_url_for("auth", filename="login.html", next=request.url))
 
 
 def login_index():
-    return redirect(external_url_for('auth', filename='login.html', next=request.url))
+    return redirect(external_url_for("auth", filename="login.html", next=request.url))
+
 
 class TestUserData:
     """Data for test user initializing."""

@@ -8,7 +8,16 @@ from flask import Flask, render_template, Response, jsonify, render_template_str
 from flask_admin import Admin
 from flask_cors import CORS
 from flask_migrate import Migrate
-from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, create_access_token, create_refresh_token, set_access_cookies, set_refresh_cookies, verify_jwt_in_request
+from flask_jwt_extended import (
+    JWTManager,
+    jwt_required,
+    get_jwt_identity,
+    create_access_token,
+    create_refresh_token,
+    set_access_cookies,
+    set_refresh_cookies,
+    verify_jwt_in_request,
+)
 
 from miminet_admin import (
     MiminetAdminIndexView,
@@ -24,7 +33,8 @@ from miminet_auth import (
     insert_test_user,
     login_index,
     login_manager,
-    remove_test_user, redirect_login,
+    remove_test_user,
+    redirect_login,
 )
 from miminet_config import SECRET_KEY
 from miminet_model import Network, db, init_db, User
@@ -75,27 +85,30 @@ app = Flask(
 )
 
 app.config.update(
-    JWT_SECRET_KEY=os.environ.get('JWT_SECRET_KEY', "secret-key"),
-    JWT_TOKEN_LOCATION = ['cookies'],
-    JWT_COOKIE_DOMAIN = f".{os.environ.get('BASE_DOMAIN', 'local.tst')}",
-    JWT_COOKIE_SECURE = False,#True,
-    JWT_COOKIE_CSRF_PROTECT = False,
-    JWT_COOKIE_SAMESITE = None,
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=3),
-    JWT_REFRESH_TOKEN_EXPIRES = timedelta(minutes=30)
+    JWT_SECRET_KEY=os.environ.get("JWT_SECRET_KEY", "secret-key"),
+    JWT_TOKEN_LOCATION=["cookies"],
+    JWT_COOKIE_DOMAIN=f".{os.environ.get('BASE_DOMAIN', 'local.tst')}",
+    JWT_COOKIE_SECURE=False,  # True,
+    JWT_COOKIE_CSRF_PROTECT=False,
+    JWT_COOKIE_SAMESITE=None,
+    JWT_ACCESS_TOKEN_EXPIRES=timedelta(minutes=3),
+    JWT_REFRESH_TOKEN_EXPIRES=timedelta(minutes=30),
 )
 
-CORS(app,
-     resources={
-         r"/*": {
-             "origins": os.environ.get('ALLOWED_HOSTS', ["http://quiz.local.tst", "http://local.tst"]),
-             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-             "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
-             "supports_credentials": True,
-             "max_age": 3600
-         }
-     },
-     intercept_exceptions=False
+CORS(
+    app,
+    resources={
+        r"/*": {
+            "origins": os.environ.get(
+                "ALLOWED_HOSTS", ["http://quiz.local.tst", "http://local.tst"]
+            ),
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
+            "supports_credentials": True,
+            "max_age": 3600,
+        }
+    },
+    intercept_exceptions=False,
 )
 
 # SQLAlchimy config
@@ -106,8 +119,9 @@ MODE = os.getenv("MODE", "dev")
 MAIN_URL = os.getenv("MAIN_URL")
 
 PUBLIC_CONFIG_KEYS = [
-    'EXTERNAL_BASE_URL',
+    "EXTERNAL_BASE_URL",
 ]
+
 
 def get_database_uri(mode):
     """
@@ -154,6 +168,7 @@ def get_database_uri(mode):
         return POSTGRES_URL
     else:
         raise ValueError(f"Unknown MODE: {mode}. Expected 'dev' or 'prod'")
+
 
 app.config["SQLALCHEMY_DATABASE_URI"] = get_database_uri(MODE)
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = True
@@ -261,7 +276,9 @@ admin.add_view(TestView(Test, db.session, name="Тесты"))
 admin.add_view(SectionView(Section, db.session, name="Разделы"))
 admin.add_view(QuestionView(Question, db.session, name="Вопросы"))
 admin.add_view(AnswerView(Answer, db.session, name="Ответы"))
-admin.add_view(QuestionCategoryView(QuestionCategory, db.session, name="Категории вопросов"))
+admin.add_view(
+    QuestionCategoryView(QuestionCategory, db.session, name="Категории вопросов")
+)
 admin.add_view(SessionQuestionView(SessionQuestion, db.session))
 admin.add_view(
     CreateCheckTaskView(
@@ -272,9 +289,11 @@ admin.add_view(
     )
 )
 
+
 @app.context_processor
 def utility_processor():
     return dict(external_url_for=external_url_for)
+
 
 @app.context_processor
 def inject_user():
@@ -282,9 +301,14 @@ def inject_user():
         verify_jwt_in_request()
         current_user_id = get_jwt_identity()
         current_user = User.query.filter(User.id == current_user_id).first()
-        return dict(current_user_id=current_user_id, is_authenticated=True, current_user=current_user)
-    except:
+        return dict(
+            current_user_id=current_user_id,
+            is_authenticated=True,
+            current_user=current_user,
+        )
+    except Exception:
         return dict(current_user_id=None, is_authenticated=False, current_user=None)
+
 
 @jwt.expired_token_loader
 def expired_token_callback(jwt_header, jwt_payload):
@@ -293,12 +317,14 @@ def expired_token_callback(jwt_header, jwt_payload):
     else:
         return redirect_login()
 
+
 @jwt.invalid_token_loader
 def invalid_token_callback(error):
     if is_api_request():
         return jsonify({"msg": "Invalid token"}), 422
     else:
         return redirect_login()
+
 
 @jwt.unauthorized_loader
 def missing_token_callback(error):
@@ -313,11 +339,11 @@ def confing_js():
     config = {key: os.getenv(key) for key in PUBLIC_CONFIG_KEYS if os.getenv(key, "")}
 
     js_content = render_template_string(
-        open('templates/config.js', 'r', encoding='utf-8').read(),
-        **config
+        open("templates/config.js", "r", encoding="utf-8").read(), **config
     )
 
-    return Response(js_content, mimetype='application/javascript')
+    return Response(js_content, mimetype="application/javascript")
+
 
 @app.route("/home")
 @jwt_required()
@@ -331,14 +357,15 @@ def home():
     )
     return render_template("home.html", networks=networks)
 
-@app.route('/refresh_access', methods=['POST', 'GET'])
+
+@app.route("/refresh_access", methods=["POST", "GET"])
 @jwt_required(refresh=True)
 def refresh_access():
     identity = get_jwt_identity()
     access_token = create_access_token(identity=identity)
     refresh_token = create_refresh_token(identity=identity)
 
-    response = jsonify({'msg': 'access token refreshed'})
+    response = jsonify({"msg": "access token refreshed"})
     set_access_cookies(response, access_token)
     set_refresh_cookies(response, refresh_token)
     return response
