@@ -24,7 +24,7 @@ from miminet_model import User
 @jwt_required()
 def answer_on_session_question_endpoint():
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     res = answer_on_session_question(request.args["id"], request.json, user)
     if res[1] == 404 or res[1] == 403:
         abort(res[1])
@@ -49,7 +49,7 @@ def check_network_task_endpoint():
     session_question_id = request.args["id"]
     answer = request.json
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
 
     result, aux, status = handle_exam_answer(session_question_id, answer, user)
 
@@ -100,7 +100,7 @@ def get_question_by_session_question_id_endpoint():
 @jwt_required()
 def start_session_endpoint():
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     res = start_session(request.args["section_id"], user)
 
     if res[2] == 404:
@@ -115,7 +115,7 @@ def start_session_endpoint():
 @jwt_required()
 def finish_session_endpoint():
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     code = finish_session(request.args["id"], user)
 
     if code == 404 or code == 403:
@@ -127,7 +127,7 @@ def finish_session_endpoint():
 @jwt_required()
 def finish_old_session_endpoint():
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     code = finish_old_sessions(user)
 
     if code == 404:

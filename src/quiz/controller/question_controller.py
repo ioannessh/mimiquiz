@@ -25,7 +25,7 @@ def get_questions_by_section_endpoint():
 @jwt_required()
 def create_question_endpoint():
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     section_id = request.args.get("id", None)
     res = create_question(section_id, request.json, user)
     if res[1] == 404 and "message" in res[0]:
@@ -58,7 +58,7 @@ def delete_question_endpoint():
     question_id = request.args["id"]
 
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     res = delete_question(request.args["id"], user)
     if res == 404:
         ret = {"message": "Вопрос не существует", "id": question_id}

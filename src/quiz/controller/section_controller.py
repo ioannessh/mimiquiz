@@ -21,7 +21,7 @@ from miminet_model import User
 @jwt_required()
 def create_section_endpoint():
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     res = create_section(
         name=request.json["name"],
         description=request.json["description"],
@@ -65,7 +65,7 @@ def get_sections_by_test_endpoint():
 @jwt_required()
 def get_deleted_sections_by_test_endpoint():
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     res = get_deleted_sections_by_test(request.args["test_id"], user)
     if res[1] == 404 or res[1] == 403:
         abort(res[1])
@@ -79,7 +79,7 @@ def get_deleted_sections_by_test_endpoint():
 def delete_section_endpoint():
     section_id = request.args["id"]
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     deleted = delete_section(user, section_id)
     if deleted == 404:
         ret = {"message": "Раздел не существует", "id": section_id}
@@ -95,7 +95,7 @@ def delete_section_endpoint():
 def edit_section_endpoint():
     section_id = request.json["id"]
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     edited = edit_section(
         user=user,
         name=request.json["name"],
@@ -118,7 +118,7 @@ def publish_or_unpublish_test_by_section_endpoint():
     is_to_publish = request.json["to_publish"]
     section_id = request.args["id"]
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     published = publish_or_unpublish_test_by_section(
         user=user, section_id=section_id, is_to_publish=is_to_publish
     )

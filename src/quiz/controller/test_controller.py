@@ -23,7 +23,7 @@ from miminet_model import User
 @jwt_required()
 def create_test_endpoint():
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     res_id = create_test(
         name=request.json["name"],
         description=request.json["description"],
@@ -47,7 +47,7 @@ def get_test_endpoint():
 @jwt_required()
 def get_tests_by_owner_endpoint():
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     res = get_tests_by_owner(user)
 
     return make_response(
@@ -71,7 +71,7 @@ def get_retakeable_tests_endpoint():
 @jwt_required()
 def get_deleted_tests_by_owner_endpoint():
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     res = get_deleted_tests_by_owner(user)
 
     return make_response(
@@ -83,7 +83,7 @@ def get_deleted_tests_by_owner_endpoint():
 def delete_test_endpoint():
     test_id = request.args["id"]
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     deleted = delete_test(user, test_id)
     if deleted == 404:
         ret = {"message": "Тест не существует", "id": test_id}
@@ -101,7 +101,7 @@ def delete_test_endpoint():
 def edit_test_endpoint():
     test_id = request.json["id"]
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     edited = edit_test(
         user=user,
         name=request.json["name"],
@@ -133,7 +133,7 @@ def publish_or_unpublish_test_endpoint():
     is_to_publish = request.json["to_publish"]
     test_id = request.args["id"]
     user_id = get_jwt_identity()
-    user = User.filter(User.id == user_id).first()
+    user = User.query.filter(User.id == user_id).first()
     published = publish_or_unpublish_test(
         user=user, test_id=test_id, is_to_publish=is_to_publish
     )
