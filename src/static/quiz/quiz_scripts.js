@@ -11,7 +11,7 @@ function findParent(element) {
 }
 
 function finishOldQuiz() {
-    fetch(finishOldSessionUrl, {
+    fetchWithAuth(finishOldSessionUrl, {
         method: 'PUT'
     })
         .then(response => response.json())
@@ -35,7 +35,7 @@ function submitForm(event) {
     finishOldQuiz();
 
 
-    fetch(form.action, {
+    fetchWithAuth(form.action, {
         method: form.method,
         body: new FormData(form)
     })

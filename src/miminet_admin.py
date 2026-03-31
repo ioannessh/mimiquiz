@@ -130,6 +130,12 @@ class TestView(MiminetAdminModelView):
 
     column_formatters = {"created_by_id": created_by_formatter}
 
+    def get_query(self):
+        return self.session.query(self.model).filter_by(user_id=current_user.id)
+
+    def get_count_query(self):
+        return self.session.query(func.count(self.model.id)).filter_by(user_id=current_user.id)
+
     pass
 
 

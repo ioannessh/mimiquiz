@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 
 from flask import request, make_response, jsonify, abort, render_template
-from flask_login import login_required, current_user
+from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from quiz.service.section_service import (
     create_section,
@@ -16,10 +16,12 @@ from quiz.service.section_service import (
 from quiz.service.test_service import get_test
 from quiz.util.encoder import UUIDEncoder
 
+from miminet_model import User
 
-@login_required
+@jwt_required()
 def create_section_endpoint():
-    user = current_user
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
     res = create_section(
         name=request.json["name"],
         description=request.json["description"],
@@ -35,7 +37,7 @@ def create_section_endpoint():
     return make_response(jsonify(ret), res[1])
 
 
-@login_required
+@jwt_required()
 def get_section_endpoint():
     res = get_section(request.args["id"])
     if res[1] == 404:
@@ -44,7 +46,7 @@ def get_section_endpoint():
     return make_response(jsonify(res), res[0])
 
 
-@login_required
+@jwt_required()
 def get_sections_by_test_endpoint():
     test_id = request.args["test_id"]
     res = get_sections_by_test(test_id)
@@ -60,9 +62,11 @@ def get_sections_by_test_endpoint():
         )
 
 
-@login_required
+@jwt_required()
 def get_deleted_sections_by_test_endpoint():
-    res = get_deleted_sections_by_test(request.args["test_id"], current_user)
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
+    res = get_deleted_sections_by_test(request.args["test_id"], user)
     if res[1] == 404 or res[1] == 403:
         abort(res[1])
     else:
@@ -71,10 +75,12 @@ def get_deleted_sections_by_test_endpoint():
         )
 
 
-@login_required
+@jwt_required()
 def delete_section_endpoint():
     section_id = request.args["id"]
-    deleted = delete_section(current_user, section_id)
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
+    deleted = delete_section(user, section_id)
     if deleted == 404:
         ret = {"message": "Раздел не существует", "id": section_id}
     elif deleted == 403:
@@ -85,11 +91,13 @@ def delete_section_endpoint():
     return make_response(jsonify(ret), deleted)
 
 
-@login_required
+@jwt_required()
 def edit_section_endpoint():
     section_id = request.json["id"]
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
     edited = edit_section(
-        user=current_user,
+        user=user,
         name=request.json["name"],
         section_id=section_id,
         description=request.json["description"],
@@ -105,12 +113,14 @@ def edit_section_endpoint():
     return make_response(jsonify(ret), edited)
 
 
-@login_required
+@jwt_required()
 def publish_or_unpublish_test_by_section_endpoint():
     is_to_publish = request.json["to_publish"]
     section_id = request.args["id"]
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
     published = publish_or_unpublish_test_by_section(
-        user=current_user, section_id=section_id, is_to_publish=is_to_publish
+        user=user, section_id=section_id, is_to_publish=is_to_publish
     )
     if published == 404:
         ret = {"message": "Тест по данной секции не существует", "id": section_id}

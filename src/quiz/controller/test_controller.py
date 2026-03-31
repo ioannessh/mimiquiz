@@ -1,7 +1,7 @@
 import json
 
-from flask_login import login_required, current_user
 from flask import request, make_response, jsonify, render_template, abort
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from quiz.service.test_service import (
     create_test,
@@ -17,10 +17,13 @@ from quiz.service.test_service import (
 )
 from quiz.util.encoder import UUIDEncoder
 
+from miminet_model import User
 
-@login_required
+
+@jwt_required()
 def create_test_endpoint():
-    user = current_user
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
     res_id = create_test(
         name=request.json["name"],
         description=request.json["description"],
@@ -32,7 +35,7 @@ def create_test_endpoint():
     return make_response(jsonify(ret), 201)
 
 
-@login_required
+@jwt_required()
 def get_test_endpoint():
     res = get_test(request.args["id"])
     if res[1] == 404:
@@ -41,9 +44,10 @@ def get_test_endpoint():
     return make_response(jsonify(res), res[0])
 
 
-@login_required
+@jwt_required()
 def get_tests_by_owner_endpoint():
-    user = current_user
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
     res = get_tests_by_owner(user)
 
     return make_response(
@@ -51,22 +55,23 @@ def get_tests_by_owner_endpoint():
     )
 
 
-@login_required
+@jwt_required()
 def get_all_tests_endpoint():
     quizzes = get_all_tests()
     return make_response(render_template("quiz/quizzes.html", quizzes=quizzes), 200)
 
 
-@login_required
+@jwt_required()
 def get_retakeable_tests_endpoint():
     tests = get_retakeable_tests()
 
     return make_response(tests, 200)
 
 
-@login_required
+@jwt_required()
 def get_deleted_tests_by_owner_endpoint():
-    user = current_user
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
     res = get_deleted_tests_by_owner(user)
 
     return make_response(
@@ -74,10 +79,12 @@ def get_deleted_tests_by_owner_endpoint():
     )
 
 
-@login_required
+@jwt_required()
 def delete_test_endpoint():
     test_id = request.args["id"]
-    deleted = delete_test(current_user, test_id)
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
+    deleted = delete_test(user, test_id)
     if deleted == 404:
         ret = {"message": "Тест не существует", "id": test_id}
     elif deleted == 403:
@@ -90,11 +97,13 @@ def delete_test_endpoint():
     return make_response(jsonify(ret), deleted)
 
 
-@login_required
+@jwt_required()
 def edit_test_endpoint():
     test_id = request.json["id"]
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
     edited = edit_test(
-        user=current_user,
+        user=user,
         name=request.json["name"],
         test_id=test_id,
         description=request.json["description"],
@@ -110,7 +119,7 @@ def edit_test_endpoint():
     return make_response(jsonify(ret), edited)
 
 
-@login_required
+@jwt_required()
 def get_tests_by_author_name_endpoint():
     tests = get_tests_by_author_name(request.json["author_name"])
 
@@ -119,12 +128,14 @@ def get_tests_by_author_name_endpoint():
     )
 
 
-@login_required
+@jwt_required()
 def publish_or_unpublish_test_endpoint():
     is_to_publish = request.json["to_publish"]
     test_id = request.args["id"]
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
     published = publish_or_unpublish_test(
-        user=current_user, test_id=test_id, is_to_publish=is_to_publish
+        user=user, test_id=test_id, is_to_publish=is_to_publish
     )
     if published == 404:
         ret = {"message": "Тест не существует", "id": test_id}

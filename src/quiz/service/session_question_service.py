@@ -370,7 +370,7 @@ def answer_on_session_question(session_question_id: str, answer, user: User):
             for net, req, mods in prepared_task
         ]
 
-        networks_to_check: list[tuple[str, str, str, str]] = []
+        networks_to_check = []
         for network_json, req_json, modifications_json in prepared_task_json:
             try:
                 network_json = (
@@ -387,12 +387,12 @@ def answer_on_session_question(session_question_id: str, answer, user: User):
                     else modifications_json
                 )
 
-                # from tasks import create_emulation_task
-                #
-                # animation = create_emulation_task(network_json)
-                # networks_to_check.append(
-                #     (network_json, animation, req_json, modifications_json)
-                # )
+                from tasks import create_emulation_task
+
+                animation = create_emulation_task(network_json)
+                networks_to_check.append(
+                    (network_json, animation, req_json, modifications_json)
+                )
 
             except Exception as e:
                 logging.error(f"Ошибка при создании задачи: {e}.")

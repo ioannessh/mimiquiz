@@ -1,14 +1,16 @@
 import json
 
 from flask import request, abort, make_response, jsonify
-from flask_login import login_required, current_user
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from quiz.facade.question_facade import create_question, delete_question
 from quiz.service.question_service import get_questions_by_section
 from quiz.util.encoder import UUIDEncoder
 
+from miminet_model import User
 
-@login_required
+
+@jwt_required()
 def get_questions_by_section_endpoint():
     res = get_questions_by_section(request.args["id"])
     if res[1] == 404 or res[1] == 403:
@@ -20,10 +22,12 @@ def get_questions_by_section_endpoint():
     )
 
 
-@login_required
+@jwt_required()
 def create_question_endpoint():
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
     section_id = request.args.get("id", None)
-    res = create_question(section_id, request.json, current_user)
+    res = create_question(section_id, request.json, user)
     if res[1] == 404 and "message" in res[0]:
         msg = res[0]["message"]
         ret = {"message": f"{msg}"}
@@ -49,11 +53,13 @@ def create_question_endpoint():
     return make_response(jsonify(ret), res[1])
 
 
-@login_required
+@jwt_required()
 def delete_question_endpoint():
     question_id = request.args["id"]
 
-    res = delete_question(request.args["id"], current_user)
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
+    res = delete_question(request.args["id"], user)
     if res == 404:
         ret = {"message": "Вопрос не существует", "id": question_id}
     elif res == 403:

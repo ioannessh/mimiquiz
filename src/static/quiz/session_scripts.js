@@ -41,7 +41,7 @@ function finishQuiz() {
         return;
     }
 
-    fetch(finishSessionUrl + '?id=' + sessionId, {
+    fetchWithAuth(finishSessionUrl + '?id=' + sessionId, {
         method: 'PUT'
     })
         .then(response => response.json())
@@ -265,7 +265,7 @@ function answerExamQuestion() {
         answer = getAnswer();
     }
 
-    fetch(answerExamQuestionURL + '?id=' + questionId, {
+    fetchWithAuth(answerExamQuestionURL + '?id=' + questionId, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -322,7 +322,7 @@ async function answerQuestion() {
         return;
     }
 
-    fetch(answerQuestionURL + '?id=' + questionId, {
+    fetchWithAuth(answerQuestionURL + '?id=' + questionId, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
@@ -422,7 +422,7 @@ if (codeElement) {
 }
 
 if (!sessionStorage.getItem('question_ids')) {
-    fetch(getQuestionJsonUrl + '?question_id=' + sessionQuestionId)
+    fetchWithAuth(getQuestionJsonUrl + '?question_id=' + sessionQuestionId)
         .then(r => r.json())
         .then(data => {
             if (data.error) {

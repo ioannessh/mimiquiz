@@ -1,6 +1,6 @@
 import json
 from flask import request, make_response, jsonify, abort, render_template
-from flask_login import login_required, current_user
+from flask_jwt_extended import jwt_required, get_jwt_identity
 
 from quiz.facade.quiz_session_facade import (
     start_session,
@@ -18,16 +18,20 @@ from quiz.service.session_question_service import (
 
 from quiz.service.network_upload_service import create_check_task
 
+from miminet_model import User
 
-@login_required
+
+@jwt_required()
 def answer_on_session_question_endpoint():
-    res = answer_on_session_question(request.args["id"], request.json, current_user)
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
+    res = answer_on_session_question(request.args["id"], request.json, user)
     if res[1] == 404 or res[1] == 403:
         abort(res[1])
     return make_response(json.dumps(res[0].to_dict(), default=str), res[1])
 
 
-@login_required
+@jwt_required()
 def get_session_question_json():
     session_question_id = request.args.get("question_id")
     data, status = get_session_question_data(session_question_id)
@@ -40,11 +44,12 @@ def get_session_question_json():
     return jsonify(data)
 
 
-@login_required
+@jwt_required()
 def check_network_task_endpoint():
     session_question_id = request.args["id"]
     answer = request.json
-    user = current_user
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
 
     result, aux, status = handle_exam_answer(session_question_id, answer, user)
 
@@ -62,7 +67,7 @@ def check_network_task_endpoint():
     return make_response("Практическая задача отправлена на проверку", 200)
 
 
-@login_required
+@jwt_required()
 def get_question_by_session_question_id_endpoint():
     result = get_question_by_session_question_id(request.args["question_id"])
 
@@ -92,9 +97,11 @@ def get_question_by_session_question_id_endpoint():
     )
 
 
-@login_required
+@jwt_required()
 def start_session_endpoint():
-    res = start_session(request.args["section_id"], current_user)
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
+    res = start_session(request.args["section_id"], user)
 
     if res[2] == 404:
         abort(res[2])
@@ -105,9 +112,11 @@ def start_session_endpoint():
     return make_response(jsonify(ret), res[2])
 
 
-@login_required
+@jwt_required()
 def finish_session_endpoint():
-    code = finish_session(request.args["id"], current_user)
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
+    code = finish_session(request.args["id"], user)
 
     if code == 404 or code == 403:
         abort(code)
@@ -115,9 +124,11 @@ def finish_session_endpoint():
     return make_response(ret, code)
 
 
-@login_required
+@jwt_required()
 def finish_old_session_endpoint():
-    code = finish_old_sessions(current_user)
+    user_id = get_jwt_identity()
+    user = User.filter(User.id == user_id).first()
+    code = finish_old_sessions(user)
 
     if code == 404:
         abort(404)
@@ -126,7 +137,7 @@ def finish_old_session_endpoint():
     )
 
 
-@login_required
+@jwt_required()
 def session_result_endpoint():
     res, status = session_result(request.args["id"])
     if status != 200:

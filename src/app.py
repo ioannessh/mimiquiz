@@ -90,18 +90,22 @@ app.config.update(
     JWT_COOKIE_DOMAIN=f".{os.environ.get('BASE_DOMAIN', 'local.tst')}",
     JWT_COOKIE_SECURE=False,  # True,
     JWT_COOKIE_CSRF_PROTECT=False,
-    JWT_COOKIE_SAMESITE=None,
+    JWT_COOKIE_SAMESITE = 'Lax',
     JWT_ACCESS_TOKEN_EXPIRES=timedelta(minutes=3),
     JWT_REFRESH_TOKEN_EXPIRES=timedelta(minutes=30),
 )
 
+allowed_hosts = os.environ.get('ALLOWED_HOSTS', '')
+if allowed_hosts:
+    allowed_hosts = [item.strip() for item in allowed_hosts.split(',')]
+else:
+    allowed_hosts = []
+print(f"Allowed Origins: {allowed_hosts}")
 CORS(
     app,
     resources={
         r"/*": {
-            "origins": os.environ.get(
-                "ALLOWED_HOSTS", ["http://quiz.local.tst", "http://local.tst"]
-            ),
+            "origins": allowed_hosts,
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization", "X-Requested-With"],
             "supports_credentials": True,
@@ -201,7 +205,7 @@ app.add_url_rule("/web_network_shared", methods=["GET"], view_func=web_network_s
 app.add_url_rule(
     "/quiz/test/owner", methods=["GET"], view_func=get_tests_by_owner_endpoint
 )
-app.add_url_rule("/quiz/test/all", methods=["GET"], view_func=get_all_tests_endpoint)
+app.add_url_rule("/quiz/test/all", methods=["GET"], view_func=get_all_tests_endpoint) # Возврат должен быть на другой рут
 app.add_url_rule("/quiz/test/get", methods=["GET"], view_func=get_test_endpoint)
 
 app.add_url_rule(
@@ -225,7 +229,7 @@ app.add_url_rule(
 )
 
 app.add_url_rule(
-    "/quiz/session/start", methods=["POST"], view_func=start_session_endpoint
+    "/quiz/session/start", methods=["POST"], view_func=start_session_endpoint # action form
 )
 app.add_url_rule(
     "/quiz/session/question",
