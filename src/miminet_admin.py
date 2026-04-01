@@ -1,8 +1,9 @@
 import json
+import os
 
 from datetime import date
 
-from flask import request, flash, redirect, url_for
+from flask import request, flash, redirect, url_for, render_template
 from flask_admin import AdminIndexView, expose
 from flask_admin.contrib.sqla import ModelView
 from flask_admin.contrib.sqla.fields import QuerySelectField
@@ -12,6 +13,8 @@ from flask_admin.actions import action
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
 from flask_login import current_user, login_user
 from markupsafe import Markup
+from sqlalchemy import func
+from sqlalchemy.orm import selectinload
 from wtforms import (
     SelectField,
     TextAreaField,
@@ -31,17 +34,274 @@ from quiz.entity.entity import (
     Section,
     Question,
     QuestionCategory,
-    SessionQuestion,
+    SessionQuestion, Answer, QuizSession, Organization,
 )
 from miminet_auth import redirect_login
+from quiz.util.dto import calculate_question_count
 
 ADMIN_ROLE_LEVEL = 1
+
+
+def _pluralize_ru(value, forms):
+    remainder_hundred = value % 100
+    remainder_ten = value % 10
+
+    if 11 <= remainder_hundred <= 14:
+        return forms[2]
+    if remainder_ten == 1:
+        return forms[0]
+    if 2 <= remainder_ten <= 4:
+        return forms[1]
+    return forms[2]
+
+
+def _format_count(value, forms):
+    return f"{value} {_pluralize_ru(value, forms)}"
+
+
+def _build_test_cards(tests):
+    cards = []
+
+    for test in tests:
+        sections = [section for section in test.sections if not section.is_deleted]
+        question_count = sum(calculate_question_count(section) for section in sections)
+        finished_sessions = sum(
+            1
+            for section in sections
+            for session in section.quiz_sessions
+            if not session.is_deleted and session.finished_at is not None
+        )
+        preview_sections = sections[:3]
+
+        cards.append(
+            {
+                "name": test.name,
+                "description": test.description,
+                "status_label": ("Опубликован" if test.is_ready else "Черновик"),
+                "retakeable_label": (
+                    "Можно перепроходить"
+                    if test.is_retakeable
+                    else "Одна попытка на раздел"
+                ),
+                "section_label": _format_count(
+                    len(sections), ("раздел", "раздела", "разделов")
+                ),
+                "question_label": _format_count(
+                    question_count, ("задание", "задания", "заданий")
+                ),
+                "attempts_label": _format_count(
+                    finished_sessions,
+                    (
+                        "завершенное прохождение",
+                        "завершенных прохождения",
+                        "завершенных прохождений",
+                    ),
+                ),
+                "section_names": [section.name for section in preview_sections],
+                "hidden_section_count": max(len(sections) - len(preview_sections), 0),
+            }
+        )
+
+    return cards
+
+
+def _get_admin_tests(user_id):
+    return (
+        Test.query.filter(
+            Test.created_by_id == user_id,
+            Test.is_deleted.is_(False),
+        )
+        .options(
+            selectinload(Test.sections).selectinload(Section.quiz_sessions),
+            selectinload(Test.sections).selectinload(Section.questions),
+        )
+        .order_by(Test.created_on.desc())
+        .all()
+    )
+
+
+def _calculate_session_score(quiz_session):
+    score = 0
+    max_score = 0
+
+    for session_question in quiz_session.sessions:
+        if session_question.is_deleted:
+            continue
+
+        question = session_question.question
+        is_practice = question is not None and question.question_type == 0
+
+        if is_practice:
+            score += session_question.score or 0
+            max_score += session_question.max_score or 0
+        else:
+            score += 1 if session_question.is_correct else 0
+            max_score += 1
+
+    return score, max_score
+
+
+def _build_statistics_groups(section_columns):
+    groups = []
+
+    for section in section_columns:
+        if not groups or groups[-1]["test_id"] != section["test_id"]:
+            groups.append(
+                {
+                    "test_id": section["test_id"],
+                    "test_name": section["test_name"],
+                    "colspan": 1,
+                }
+            )
+        else:
+            groups[-1]["colspan"] += 1
+
+    return groups
+
+
+def _build_statistics_data(tests):
+    section_columns = []
+
+    for test in tests:
+        sections = [section for section in test.sections if not section.is_deleted]
+        sections.sort(key=lambda section: section.id or 0)
+
+        for section in sections:
+            section_columns.append(
+                {
+                    "id": section.id,
+                    "test_id": test.id,
+                    "test_name": test.name,
+                    "section_name": section.name,
+                }
+            )
+
+    if not section_columns:
+        return section_columns, []
+
+    section_ids = [section["id"] for section in section_columns]
+    latest_sessions_subquery = (
+        db.session.query(
+            QuizSession.id.label("session_id"),
+            func.row_number()
+            .over(
+                partition_by=(QuizSession.created_by_id, QuizSession.section_id),
+                order_by=(QuizSession.finished_at.desc(), QuizSession.id.desc()),
+            )
+            .label("row_num"),
+        )
+        .filter(
+            QuizSession.section_id.in_(section_ids),
+            QuizSession.is_deleted.is_(False),
+            QuizSession.finished_at.isnot(None),
+            QuizSession.created_by_id.isnot(None),
+        )
+        .subquery()
+    )
+
+    sessions = (
+        db.session.query(QuizSession)
+        .join(
+            latest_sessions_subquery,
+            latest_sessions_subquery.c.session_id == QuizSession.id,
+        )
+        .filter(latest_sessions_subquery.c.row_num == 1)
+        .options(
+            selectinload(QuizSession.sessions).selectinload(SessionQuestion.question),
+            selectinload(QuizSession.created_by_user),
+        )
+        .all()
+    )
+
+    latest_session_by_user_section = {}
+    users_by_id = {}
+
+    for session in sessions:
+        key = (session.created_by_id, session.section_id)
+        if key in latest_session_by_user_section:
+            continue
+
+        latest_session_by_user_section[key] = session
+        users_by_id[session.created_by_id] = session.created_by_user
+
+    rows = []
+
+    for user_id, user in users_by_id.items():
+        cells = []
+        total_score = 0
+        completed_sections = 0
+
+        for section in section_columns:
+            session = latest_session_by_user_section.get((user_id, section["id"]))
+
+            if session is None:
+                cells.append({"has_result": False})
+                continue
+
+            score, max_score = _calculate_session_score(session)
+            total_score += score
+            completed_sections += 1
+            cells.append(
+                {
+                    "has_result": True,
+                    "score": score,
+                    "max_score": max_score,
+                    "guid": session.guid,
+                }
+            )
+
+        if user and user.nick:
+            user_name = user.nick
+        elif user and user.email:
+            user_name = user.email
+        else:
+            user_name = f"Пользователь {user_id}"
+
+        rows.append(
+            {
+                "user_id": user_id,
+                "user_name": user_name,
+                "can_open_profile": user is not None,
+                "total_score": total_score,
+                "completed_sections": completed_sections,
+                "cells": cells,
+            }
+        )
+
+    rows.sort(
+        key=lambda row: (
+            -row["total_score"],
+            -row["completed_sections"],
+            row["user_name"].casefold(),
+        )
+    )
+
+    for position, row in enumerate(rows, start=1):
+        row["position"] = position
+
+    return section_columns, rows
 
 
 class MiminetAdminIndexView(AdminIndexView):
     @expose("/")
     def index(self):
-        return self.render("admin/index.html")
+        tests = _get_admin_tests(current_user.id)
+        return self.render(
+            "admin/index.html",
+            test_cards=_build_test_cards(tests),
+            statistics_url=url_for("admin.statistics"),
+        )
+
+    @expose("/statistics")
+    def statistics(self):
+        tests = _get_admin_tests(current_user.id)
+        section_columns, user_rows = _build_statistics_data(tests)
+        return self.render(
+            "admin/statistics.html",
+            section_columns=section_columns,
+            test_groups=_build_statistics_groups(section_columns),
+            user_rows=user_rows,
+        )
 
     def is_accessible(self):
         try:
@@ -272,39 +532,41 @@ class QuestionView(MiminetAdminModelView):
         "question_type": get_question_type,  # type: ignore
         "text": lambda v, c, model, n, **kwargs: Markup.unescape(model.text),
     }
+    #
+    # form_extra_fields = {
+    #     "section_id": QuerySelectField(
+    #         "Вопрос раздела",
+    #         query_factory=lambda: Section.query.filter(
+    #             Section.created_by_id == current_user.id
+    #         ).all(),
+    #         get_pk=lambda section: section.id,
+    #         get_label=lambda section: (
+    #             section.name + (" (" + User.query.get(section.created_by_id).nick + ")")
+    #             if section.created_by_id
+    #             else ""
+    #         ),
+    #         allow_blank=True,
+    #         blank_text="Без раздела",
+    #     ),
+    #     "question_type": SelectField(
+    #         "Тип вопроса",
+    #         choices=[
+    #             (0, "Практическое задание"),
+    #             (1, "С вариантами ответов"),
+    #             (2, "На сортировку"),
+    #             (3, "На сопоставление"),
+    #         ],
+    #         widget=Select2Widget(),
+    #     ),
+    #     "category_id": QuerySelectField(
+    #         "Категория вопроса",
+    #         query_factory=lambda: db.session.query(QuestionCategory),
+    #         get_pk=lambda question_category: question_category.id,
+    #         get_label=lambda question_category: question_category.name,
+    #     ),
+    # }
 
-    form_extra_fields = {
-        "section_id": QuerySelectField(
-            "Вопрос раздела",
-            query_factory=lambda: Section.query.filter(
-                Section.created_by_id == current_user.id
-            ).all(),
-            get_pk=lambda section: section.id,
-            get_label=lambda section: (
-                section.name + (" (" + User.query.get(section.created_by_id).nick + ")")
-                if section.created_by_id
-                else ""
-            ),
-            allow_blank=True,
-            blank_text="Без раздела",
-        ),
-        "question_type": SelectField(
-            "Тип вопроса",
-            choices=[
-                (0, "Практическое задание"),
-                (1, "С вариантами ответов"),
-                (2, "На сортировку"),
-                (3, "На сопоставление"),
-            ],
-            widget=Select2Widget(),
-        ),
-        "category_id": QuerySelectField(
-            "Категория вопроса",
-            query_factory=lambda: db.session.query(QuestionCategory),
-            get_pk=lambda question_category: question_category.id,
-            get_label=lambda question_category: question_category.name,
-        ),
-    }
+    endpoint = "question"
 
     def on_model_change(self, form, model, is_created, **kwargs):
         super().on_model_change(form, model, is_created)
@@ -317,6 +579,163 @@ class QuestionView(MiminetAdminModelView):
         model.category_id = model.category_id.get_id()
         model.text = Markup.escape(Markup.unescape(model.text))
 
+    create_template = 'admin/question_create.html'
+    edit_template = 'admin/question_edit.html'
+
+    @expose('/get_question_form/', methods=['GET'])
+    def get_question_form(self):
+        question_type = request.args.get('type', '0')
+        question_id = request.args.get('id', None)
+
+        existing_question = None
+        if question_id:
+            existing_question = Question.query.get(question_id)
+        existing_answers = sorted(
+            Answer.query.filter(Answer.question_id == question_id).all(),
+            key=lambda ans: (ans.position, ans.id),
+        ) if current_user.is_authenticated else []
+
+        # Формируем данные для шаблона
+        form_data = {
+            'question_type': question_type,
+            'existing_text': existing_question.text if existing_question else '',
+            'existing_explanation': existing_question.explanation if existing_question else '',
+            'existing_category_id': existing_question.category_id if existing_question else None,
+            'existing_section_id': existing_question.section_id if existing_question else None,
+            'existing_image_path': None,
+            'existing_answers': existing_answers,
+            'share': existing_question.is_shared if existing_question else False
+        }
+
+        categories = db.session.query(QuestionCategory).all()
+        sections = Section.query.filter(
+            Section.created_by_id == current_user.id
+        ).all() if current_user.is_authenticated else []
+
+        return render_template('admin/partials/question_form_fields.html',
+                               form_data=form_data,
+                               categories=categories,
+                               sections=sections,
+                               question_type=question_type,
+                               existing_answers=existing_answers)
+
+    def create_form(self):
+        from flask_admin.form import BaseForm
+        return BaseForm()
+
+    def edit_form(self, obj):
+        from flask_admin.form import BaseForm
+        return BaseForm(obj=obj)
+
+    def on_model_change(self, form, model, is_created, **kwargs):
+        super().on_model_change(form, model, is_created)
+
+        model.text = Markup.escape(Markup.unescape(request.form.get('text', '')))
+        model.explanation = request.form.get('explanation', '')
+        model.question_type = request.form.get('question_type', '0')
+        model.is_shared = 'share' in request.form
+
+        category_id = request.form.get('category_id')
+        model.category_id = int(category_id) if category_id and category_id != 'None' else None
+
+        section_id = request.form.get('section_id')
+        model.section_id = int(section_id) if section_id and section_id != 'None' else None
+
+        # Обработка изображения
+        # if 'image' in request.files:
+        #     file = request.files['image']
+        #     if file and file.filename:
+        #         from werkzeug.utils import secure_filename
+        #         import os
+        #         from datetime import datetime
+        #
+        #         filename = secure_filename(file.filename)
+        #         filename = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{filename}"
+        #
+        #         # upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'questions')
+        #         # os.makedirs(upload_path, exist_ok=True)
+        #         #
+        #         # file.save(os.path.join(upload_path, filename))
+        #         # model.image = filename
+
+        return model
+
+    def after_model_change(self, form, model, is_created, **kwargs) -> None:
+        super().after_model_change(form, model, is_created)
+        form_answers = []
+        correct_answer = request.form.get('correct_answer', None)
+        correct_answers = request.form.getlist('correct_answers[]')
+        answer_text = request.form.getlist('answer_text[]')
+        answer_text_left = request.form.getlist('answer_text_left[]')
+        answer_text_right = request.form.getlist('answer_text_right[]')
+        cnt_answers = max([len(correct_answers), len(answer_text), len(answer_text_left), len(answer_text_right)])
+        for i in range(cnt_answers):
+            variant = answer_text[i] if len(answer_text) > i else ""
+            position = i
+            left = answer_text_left[i] if len(answer_text_left) > i else None
+            right = answer_text_right[i] if len(answer_text_right) > i else None
+            form_answers.append({
+                'variant': variant,
+                'position': position,
+                'left': left,
+                'right': right,
+                'created_by_id': model.created_by_id,
+                'question_id': model.id,
+                'is_correct': False
+            })
+        for i in correct_answers:
+            form_answers[int(i)]['is_correct'] = True
+        if correct_answer:
+            form_answers[int(correct_answer)]['is_correct'] = True
+
+        existing_answers = sorted(
+            Answer.query.filter(Answer.question_id == model.id).all(),
+            key=lambda ans: (ans.position, ans.id),
+        ) if current_user.is_authenticated else []
+
+        updates = []
+        for idx, answer in enumerate(existing_answers):
+            if idx < len(form_answers):
+                updates.append(form_answers[idx])
+                updates[idx]["id"] = existing_answers[idx].id
+
+        if updates:
+            db.session.bulk_update_mappings(Answer, updates)
+
+        for idx in range(len(existing_answers), len(form_answers)):
+            new_answer = Answer(
+                variant=form_answers[idx].get('variant', None),
+                is_correct=form_answers[idx].get('is_correct', None),
+                position=form_answers[idx].get('position', None),
+                left=form_answers[idx].get('left', None),
+                right=form_answers[idx].get('right', None),
+                question_id=form_answers[idx].get('question_id', None),
+                created_by_id=form_answers[idx].get('created_by_id', None),
+            )
+            db.session.add(new_answer)
+
+        if len(form_answers) < len(existing_answers):
+            Answer.query.filter(
+                Answer.question_id == model.id,
+                Answer.position >= len(form_answers)
+            ).delete()
+
+        db.session.commit()
+
+    def on_model_delete(self, model) -> None:
+        Answer.query.filter(
+            Answer.question_id == model.id
+        ).delete()
+
+    @expose("/new/", methods=("GET", "POST"))
+    def create_view(self):
+        if request.method == 'POST':
+            question_type = request.form.get('question_type')
+            if not question_type:
+                flash('Выберите тип вопроса', 'error')
+                return redirect(self.get_url('.create_view'))
+
+        return super().create_view()
 
 def get_question_text(view, context, model, name, **kwargs):
     if not model.question_id:

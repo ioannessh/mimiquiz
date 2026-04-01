@@ -19,6 +19,8 @@ from quiz.util.encoder import UUIDEncoder
 
 from miminet_model import User
 
+from quiz.service.test_service import get_all_tests_by_organization
+
 
 @jwt_required()
 def create_test_endpoint():
@@ -57,7 +59,7 @@ def get_tests_by_owner_endpoint():
 
 @jwt_required()
 def get_all_tests_endpoint():
-    quizzes = get_all_tests()
+    quizzes = get_all_tests_by_organization()
     return make_response(render_template("quiz/quizzes.html", quizzes=quizzes), 200)
 
 
