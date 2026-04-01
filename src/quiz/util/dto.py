@@ -7,6 +7,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from flask import has_request_context
+from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 from flask_login import current_user
 from markupsafe import Markup
 from sqlalchemy.orm import joinedload
@@ -113,6 +114,14 @@ def to_test_dto_list(tests: List[Test]):
 def get_current_user_id():
     if not has_request_context():
         return None
+
+    try:
+        verify_jwt_in_request()
+        user_id = get_jwt_identity()
+        return user_id
+    except Exception:
+        return None
+
 
     if not current_user.is_authenticated:
         return None
@@ -400,7 +409,7 @@ class SectionDto:
         self.results_available_from = results_available_from
 
         current_user_sessions = QuizSession.query.filter(
-            QuizSession.created_by_id == current_user.id
+            QuizSession.created_by_id == get_current_user_id()
         ).filter(QuizSession.section_id == section_id)
 
         self.sessions_count = current_user_sessions.count()
