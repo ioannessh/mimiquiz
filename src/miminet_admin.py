@@ -1,6 +1,7 @@
 import json
 from datetime import date
 
+import requests
 from flask import flash, redirect, render_template, request, url_for
 from flask_admin import AdminIndexView, expose
 from flask_admin.actions import action
@@ -39,8 +40,6 @@ from quiz.service.network_upload_service import (
     create_check_task_json,
 )
 from quiz.util.dto import calculate_question_count, external_base_url
-import requests
-
 
 ADMIN_ROLE_LEVEL = 1
 
@@ -687,8 +686,9 @@ class QuestionView(MiminetAdminModelView):
                     "is_correct": False,
                 }
             )
-        for i in correct_answers:
-            form_answers[int(i)]["is_correct"] = True
+        for idx_str in correct_answers:
+            if idx_str.isdigit():
+                form_answers[int(idx_str)]["is_correct"] = True
         if correct_answer:
             form_answers[int(correct_answer)]["is_correct"] = True
 

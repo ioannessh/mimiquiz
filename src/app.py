@@ -3,13 +3,7 @@ import sys
 from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
-from flask import (
-    Flask,
-    Response,
-    jsonify,
-    render_template,
-    render_template_string,
-)
+from flask import Flask, Response, jsonify, render_template, render_template_string
 from flask_admin import Admin
 from flask_cors import CORS
 from flask_jwt_extended import (
@@ -93,11 +87,11 @@ app.config.update(
     JWT_REFRESH_TOKEN_EXPIRES=timedelta(minutes=30),
 )
 
-allowed_hosts = os.environ.get("ALLOWED_HOSTS", "")
-if allowed_hosts:
-    allowed_hosts = [item.strip() for item in allowed_hosts.split(",")]
-else:
-    allowed_hosts = []
+allowed_hosts_env = os.environ.get("ALLOWED_HOSTS", "")
+allowed_hosts = []
+if allowed_hosts_env:
+    allowed_hosts = [item.strip() for item in allowed_hosts_env.split(",")]
+
 print(f"Allowed Origins: {allowed_hosts}")
 CORS(
     app,
