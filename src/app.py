@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
 
-from flask import Flask, render_template, Response, jsonify, render_template_string
+from flask import Flask, render_template, Response, jsonify, render_template_string, redirect, request
 from flask_admin import Admin
 from flask_cors import CORS
 from flask_migrate import Migrate
@@ -79,6 +79,7 @@ from quiz.entity.entity import (
 
 from quiz.controller.image_controller import image_routes
 from miminet_jwt import external_url_for, is_api_request
+from quiz.util.dto import get_organization
 
 app = Flask(
     __name__, static_url_path="", static_folder="static", template_folder="templates"
@@ -87,7 +88,7 @@ app = Flask(
 app.config.update(
     JWT_SECRET_KEY=os.environ.get("JWT_SECRET_KEY", "secret-key"),
     JWT_TOKEN_LOCATION=["cookies"],
-    JWT_COOKIE_DOMAIN=f".{os.environ.get('BASE_DOMAIN', 'local.tst')}",
+    JWT_COOKIE_DOMAIN=f".{os.environ.get('BASE_DOMAIN', 'localhost')}",
     JWT_COOKIE_SECURE=False,  # True,
     JWT_COOKIE_CSRF_PROTECT=False,
     JWT_COOKIE_SAMESITE = 'Lax',
@@ -203,67 +204,67 @@ app.add_url_rule("/web_network_shared", methods=["GET"], view_func=web_network_s
 
 # Quiz
 app.add_url_rule(
-    "/quiz/test/owner", methods=["GET"], view_func=get_tests_by_owner_endpoint
+    "/test/owner", methods=["GET"], view_func=get_tests_by_owner_endpoint
 )
-app.add_url_rule("/quiz/test/all", methods=["GET"], view_func=get_all_tests_endpoint) # Возврат должен быть на другой рут
-app.add_url_rule("/quiz/test/get", methods=["GET"], view_func=get_test_endpoint)
+app.add_url_rule("/", methods=["GET"], view_func=get_all_tests_endpoint) # Возврат должен быть на другой рут
+app.add_url_rule("/test/get", methods=["GET"], view_func=get_test_endpoint)
 
 app.add_url_rule(
-    "/quiz/section/test/all", methods=["GET"], view_func=get_sections_by_test_endpoint
-)
-
-app.add_url_rule(
-    "/quiz/question/create", methods=["POST"], view_func=create_question_endpoint
+    "/section/test/all", methods=["GET"], view_func=get_sections_by_test_endpoint
 )
 
 app.add_url_rule(
-    "/quiz/question/delete", methods=["DELETE"], view_func=delete_question_endpoint
+    "/question/create", methods=["POST"], view_func=create_question_endpoint
 )
 
 app.add_url_rule(
-    "/quiz/question/all", methods=["GET"], view_func=get_questions_by_section_endpoint
+    "/question/delete", methods=["DELETE"], view_func=delete_question_endpoint
 )
 
 app.add_url_rule(
-    "/quiz/session/question/json", methods=["GET"], view_func=get_session_question_json
+    "/question/all", methods=["GET"], view_func=get_questions_by_section_endpoint
 )
 
 app.add_url_rule(
-    "/quiz/session/start", methods=["POST"], view_func=start_session_endpoint # action form
+    "/session/question/json", methods=["GET"], view_func=get_session_question_json
+)
+
+app.add_url_rule(
+    "/session/start", methods=["POST"], view_func=start_session_endpoint # action form
 )
 app.add_url_rule(
-    "/quiz/session/question",
+    "/session/question",
     methods=["GET"],
     view_func=get_question_by_session_question_id_endpoint,
 )
 app.add_url_rule(
-    "/quiz/session/answer",
+    "/session/answer",
     methods=["POST"],
     view_func=answer_on_session_question_endpoint,
 )
 
 app.add_url_rule(
-    "/quiz/session/check_network_task",
+    "/session/check_network_task",
     methods=["POST"],
     view_func=check_network_task_endpoint,
 )
 
 app.add_url_rule(
-    "/quiz/session/finish", methods=["PUT"], view_func=finish_session_endpoint
+    "/session/finish", methods=["PUT"], view_func=finish_session_endpoint
 )
 app.add_url_rule(
-    "/quiz/session/finishold", methods=["PUT"], view_func=finish_old_session_endpoint
+    "/session/finishold", methods=["PUT"], view_func=finish_old_session_endpoint
 )
 app.add_url_rule(
-    "/quiz/session/result", methods=["GET"], view_func=session_result_endpoint
+    "/session/result", methods=["GET"], view_func=session_result_endpoint
 )
 app.add_url_rule(
-    "/quiz/user/session/result",
+    "/user/session/result",
     methods=["GET"],
     view_func=get_result_by_session_guid_endpoint,
 )
 app.add_url_rule(
-    "/quiz/images/upload", methods=["POST"], view_func=upload_image_endpoint
+    "/images/upload", methods=["POST"], view_func=upload_image_endpoint
 )
 
 app.register_blueprint(image_routes)
@@ -359,7 +360,13 @@ def home():
         .order_by(Network.id.desc())
         .all()
     )
-    return render_template("home.html", networks=networks)
+    org = get_organization()
+    return render_template(
+        "home.html",
+        networks=networks,
+        organization_logo_uri=org.logo_uri,
+        organization_name=org.name,
+    )
 
 
 @app.route("/refresh_access", methods=["POST", "GET"])

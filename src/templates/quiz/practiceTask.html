@@ -11,7 +11,7 @@
 
         <nav class="navbar">
             <a href="/">
-                <img src="{{ url_for('static', filename='/images/logo.png') }}" class="position-absolute start-0 top-0" width="170" style="margin: 17px;" alt="Miminet">
+                <img src="{{ external_url_for('static', filename='images/' ~ organization_logo_uri) }}" class="position-absolute start-0 top-0" width="170" style="margin: 17px;" alt="{{ organization_name }}">
             </a>
 
             {# Test name and section name #}

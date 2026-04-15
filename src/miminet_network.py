@@ -14,6 +14,7 @@ from miminet_model import Network, Simulate, db
 from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request
 
 from miminet_jwt import external_url_for
+from quiz.util.dto import get_organization
 
 
 # def external_url_for(endpoint, filename=None, **kwargs):
@@ -153,6 +154,7 @@ def web_network_shared():
         db.session.commit()
 
     json_nodes = json.dumps(jnet["nodes"])
+    org = get_organization()
 
     return render_template(
         "network_shared.html",
@@ -164,6 +166,8 @@ def web_network_shared():
         network_config=jnet["config"],
         pcaps=jnet["pcap"],
         mimishark_nav=1,
+        organization_logo_uri=org.logo_uri,
+        organization_name=org.name,
     )
 
 
@@ -260,6 +264,7 @@ def web_network():
         db.session.commit()
 
     json_nodes = json.dumps(jnet["nodes"])
+    org = get_organization()
 
     return render_template(
         "network.html",
@@ -272,6 +277,8 @@ def web_network():
         network_config=jnet["config"],
         pcaps=jnet["pcap"],
         mimishark_nav=1,
+        organization_logo_uri=org.logo_uri,
+        organization_name=org.name,
     )
 
 

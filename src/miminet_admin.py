@@ -15,6 +15,7 @@ from flask_login import current_user, login_user
 from markupsafe import Markup
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
+from werkzeug.datastructures import FileStorage
 from wtforms import (
     SelectField,
     TextAreaField,
@@ -34,10 +35,10 @@ from quiz.entity.entity import (
     Section,
     Question,
     QuestionCategory,
-    SessionQuestion, Answer, QuizSession, Organization,
+    SessionQuestion, Answer, QuizSession, Organization, QuestionImage,
 )
 from miminet_auth import redirect_login
-from quiz.util.dto import calculate_question_count
+from quiz.util.dto import calculate_question_count, external_base_url
 
 ADMIN_ROLE_LEVEL = 1
 
@@ -391,10 +392,10 @@ class TestView(MiminetAdminModelView):
     column_formatters = {"created_by_id": created_by_formatter}
 
     def get_query(self):
-        return self.session.query(self.model).filter_by(user_id=current_user.id)
+        return self.session.query(self.model).filter_by(created_by_id=current_user.id)
 
     def get_count_query(self):
-        return self.session.query(func.count(self.model.id)).filter_by(user_id=current_user.id)
+        return self.session.query(func.count(self.model.id)).filter_by(created_by_id=current_user.id)
 
     pass
 
@@ -489,6 +490,44 @@ def get_question_type(view, context, model, name, **kwargs):
     return types.get(model.question_type, "")
 
 
+import os
+import requests
+from typing import Union, BinaryIO
+
+
+def upload_to_quiz_endpoint(file_storage: FileStorage,
+                            base_url: str,
+                            timeout: int = 30):
+    url = f"{base_url.rstrip('/')}/quiz/upload"
+
+    filename = file_storage.filename or "uploaded_file"
+    content_type = file_storage.content_type or "application/octet-stream"
+
+    original_pos = file_storage.tell()
+    file_storage.seek(0)
+    file_content = file_storage.read()
+
+    files = {
+        "file": (filename, file_content, content_type)
+    }
+
+    try:
+        response = requests.post(url, files=files, timeout=timeout)
+        response.raise_for_status()
+
+        return response.json()
+
+    except requests.exceptions.HTTPError as e:
+        try:
+            error_payload = response.json()
+            error_msg = error_payload.get("error", str(e))
+        except Exception:
+            error_msg = str(e)
+        raise RuntimeError(f"Сервер вернул ошибку: {error_msg}") from e
+    finally:
+        file_storage.seek(original_pos)
+
+
 class QuestionView(MiminetAdminModelView):
     form_excluded_columns = MiminetAdminModelView.form_excluded_columns + [
         "practice_question",
@@ -532,52 +571,8 @@ class QuestionView(MiminetAdminModelView):
         "question_type": get_question_type,  # type: ignore
         "text": lambda v, c, model, n, **kwargs: Markup.unescape(model.text),
     }
-    #
-    # form_extra_fields = {
-    #     "section_id": QuerySelectField(
-    #         "Вопрос раздела",
-    #         query_factory=lambda: Section.query.filter(
-    #             Section.created_by_id == current_user.id
-    #         ).all(),
-    #         get_pk=lambda section: section.id,
-    #         get_label=lambda section: (
-    #             section.name + (" (" + User.query.get(section.created_by_id).nick + ")")
-    #             if section.created_by_id
-    #             else ""
-    #         ),
-    #         allow_blank=True,
-    #         blank_text="Без раздела",
-    #     ),
-    #     "question_type": SelectField(
-    #         "Тип вопроса",
-    #         choices=[
-    #             (0, "Практическое задание"),
-    #             (1, "С вариантами ответов"),
-    #             (2, "На сортировку"),
-    #             (3, "На сопоставление"),
-    #         ],
-    #         widget=Select2Widget(),
-    #     ),
-    #     "category_id": QuerySelectField(
-    #         "Категория вопроса",
-    #         query_factory=lambda: db.session.query(QuestionCategory),
-    #         get_pk=lambda question_category: question_category.id,
-    #         get_label=lambda question_category: question_category.name,
-    #     ),
-    # }
 
     endpoint = "question"
-
-    def on_model_change(self, form, model, is_created, **kwargs):
-        super().on_model_change(form, model, is_created)
-
-        if model.section_id:
-            model.section_id = model.section_id.get_id()
-        else:
-            model.section_id = None
-
-        model.category_id = model.category_id.get_id()
-        model.text = Markup.escape(Markup.unescape(model.text))
 
     create_template = 'admin/question_create.html'
     edit_template = 'admin/question_edit.html'
@@ -641,23 +636,6 @@ class QuestionView(MiminetAdminModelView):
         section_id = request.form.get('section_id')
         model.section_id = int(section_id) if section_id and section_id != 'None' else None
 
-        # Обработка изображения
-        # if 'image' in request.files:
-        #     file = request.files['image']
-        #     if file and file.filename:
-        #         from werkzeug.utils import secure_filename
-        #         import os
-        #         from datetime import datetime
-        #
-        #         filename = secure_filename(file.filename)
-        #         filename = f"{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}_{filename}"
-        #
-        #         # upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'questions')
-        #         # os.makedirs(upload_path, exist_ok=True)
-        #         #
-        #         # file.save(os.path.join(upload_path, filename))
-        #         # model.image = filename
-
         return model
 
     def after_model_change(self, form, model, is_created, **kwargs) -> None:
@@ -719,6 +697,22 @@ class QuestionView(MiminetAdminModelView):
                 Answer.question_id == model.id,
                 Answer.position >= len(form_answers)
             ).delete()
+
+        filename = None
+        if 'image' in request.files:
+            file = request.files['image']
+            res = upload_to_quiz_endpoint(file, external_base_url)
+            if "error" in res:
+                raise ValueError(f"Изображение не загруженно: {res.get('error')}.")
+            elif "filename" in res:
+                filename = f"quiz/images/{res.get('filename')}"
+
+        if filename:
+            new_image = QuestionImage(
+                question_id=model.id,
+                file_path=filename,
+            )
+            db.session.add(new_image)
 
         db.session.commit()
 

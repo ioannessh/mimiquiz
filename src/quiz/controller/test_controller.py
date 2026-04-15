@@ -21,6 +21,9 @@ from miminet_model import User
 
 from quiz.service.test_service import get_all_tests_by_organization
 
+from quiz.entity.entity import Organization
+from quiz.util.dto import get_organization
+
 
 @jwt_required()
 def create_test_endpoint():
@@ -60,7 +63,16 @@ def get_tests_by_owner_endpoint():
 @jwt_required()
 def get_all_tests_endpoint():
     quizzes = get_all_tests_by_organization()
-    return make_response(render_template("quiz/quizzes.html", quizzes=quizzes), 200)
+    org = get_organization()
+    return make_response(
+        render_template(
+            "quiz/quizzes.html",
+            quizzes=quizzes,
+            organization_logo_uri=org.logo_uri,
+            organization_name=org.name,
+        ),
+        200
+    )
 
 
 @jwt_required()

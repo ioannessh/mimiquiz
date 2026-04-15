@@ -18,6 +18,11 @@ from quiz.util.encoder import UUIDEncoder
 
 from miminet_model import User
 
+from quiz.entity.entity import Organization
+
+from quiz.util.dto import get_organization
+
+
 @jwt_required()
 def create_section_endpoint():
     user_id = get_jwt_identity()
@@ -56,8 +61,15 @@ def get_sections_by_test_endpoint():
         sections = res[0]
         test = get_test(test_id)[0]
         test_info = {"test_name": test.name, "is_retakeable": test.is_retakeable}
+        org = get_organization()
         return make_response(
-            render_template("quiz/quiz.html", test_info=test_info, sections=sections),
+            render_template(
+                "quiz/quiz.html",
+                test_info=test_info,
+                sections=sections,
+                organization_logo_uri=org.logo_uri,
+                organization_name=org.name,
+            ),
             200,
         )
 

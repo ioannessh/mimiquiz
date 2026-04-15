@@ -1,3 +1,4 @@
+import os
 import random
 import uuid
 from typing import Dict, List
@@ -20,6 +21,7 @@ from quiz.entity.entity import (
     Answer,
     QuizSession,
     SessionQuestion,
+    Organization,
 )
 
 
@@ -128,6 +130,28 @@ def get_current_user_id():
 
     return current_user.id
 
+def get_organization() -> Organization:
+    organization_domain = os.environ.get('QUIZ_DOMAIN', None)
+    base_domain = os.environ.get('BASE_DOMAIN', 'localhost')
+    org = None
+    if organization_domain:
+        org = Organization.query.filter_by(domain=organization_domain).first()
+
+    if org is None:
+        org = Organization(
+            id = None,
+            name = "Miminet",
+            logo = "images/logo.png",
+            admin_role = 1,
+            domain = base_domain,
+        )
+    else:
+        org.logo_uri = f"logo_organizations/{org.logo_uri}"
+
+    return org
+
+
+external_base_url = os.environ.get('EXTERNAL_BASE_URL')
 
 def get_active_sections(test: Test) -> List[Section]:
     return [section for section in test.sections if not section.is_deleted]

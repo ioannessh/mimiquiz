@@ -20,6 +20,10 @@ from quiz.service.network_upload_service import create_check_task
 
 from miminet_model import User
 
+from quiz.entity.entity import Organization
+
+from quiz.util.dto import get_organization
+
 
 @jwt_required()
 def answer_on_session_question_endpoint():
@@ -83,6 +87,8 @@ def get_question_by_session_question_id_endpoint():
         status_code,
     ) = result
 
+    org = get_organization()
+
     return make_response(
         render_template(
             "quiz/sessionQuestion.html",
@@ -92,6 +98,8 @@ def get_question_by_session_question_id_endpoint():
             available_from=available_from,
             session_question_id=session_question_id,
             available_answer=available_answer,
+            organization_logo_uri=org.logo_uri,
+            organization_name=org.name,
         ),
         status_code,
     )
@@ -143,17 +151,30 @@ def session_result_endpoint():
     if status != 200:
         return make_response("Error", status)
 
+    org = get_organization()
     return make_response(
-        render_template("quiz/userSessionResult.html", data=res), status
+        render_template(
+            "quiz/userSessionResult.html",
+            data=res,
+            organization_logo_uri=org.logo_uri,
+            organization_name=org.name,
+        ),
+        status
     )
 
 
 def get_result_by_session_guid_endpoint():
     result, status = get_result_by_session_guid(request.args["guid"])
 
+    org = get_organization()
     if result is None:
         return make_response(
-            render_template("quiz/noResult.html", error="no_results"),
+            render_template(
+                "quiz/noResult.html",
+                error="no_results",
+                organization_logo_uri=org.logo_uri,
+                organization_name=org.name,
+            ),
             status,
         )
 
@@ -166,6 +187,8 @@ def get_result_by_session_guid_endpoint():
             data=data.to_dict(),
             questions_result=questions_result,
             error=None,
+            organization_logo_uri=org.logo_uri,
+            organization_name=org.name,
         ),
         status,
     )

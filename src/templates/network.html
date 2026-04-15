@@ -22,7 +22,7 @@
         <nav class="navbar">
             {% if is_authenticated %}
                 <a href="/">
-                    <img src="{{ url_for('static', filename='/images/logo.png') }}" class="position-absolute start-0 top-0" width="170" style="margin: 17px;" alt="Miminet">
+                    <img src="{{ external_url_for('static', filename='images/' ~ organization_logo_uri) }}" class="position-absolute start-0 top-0" width="170" style="margin: 17px;" alt="{{ organization_name }}">
                 </a>
                 <div class="ws-name-case position-absolute top-0 start-50 translate-middle-x" style="margin-top: 17px;">
                      {% if request.path != url_for('web_network_shared') %}
@@ -70,7 +70,7 @@
                 </div>
             {% else %}
                  <a href="/">
-                    <img src="{{ url_for('static', filename='/images/logo.png') }}" class="position-absolute start-0 top-0" width="170" style="margin: 17px;" alt="Miminet">
+                    <img src="{{ external_url_for('static', filename='images/' ~ organization_logo_uri) }}" class="position-absolute start-0 top-0" width="170" style="margin: 17px;" alt="{{ organization_name }}">
                 </a>
                 <div class="ws-name-case position-absolute top-0 start-50 translate-middle-x" style="margin-top: 17px;">
                      <a class="nav-link" id="network_title_head" href="#">

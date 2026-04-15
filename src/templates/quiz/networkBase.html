@@ -53,7 +53,7 @@
         <nav class="header navbar navbar-expand-lg position-absolute navbar-sticky">
             <div class="container">
                 <a href="/" class="navbar-brand" style="min-width: 170px">
-                    <img src="{{ url_for('static', filename='/images/logo.png') }}" width="170" alt="Miminet">
+                    <img src="{{ external_url_for('static', filename='images/' ~ organization_logo_uri) }}" width="170" alt="{{ organization_name }}">
                 </a>
 
                 {# Test name and section name #}

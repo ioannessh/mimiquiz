@@ -39,8 +39,8 @@
             {% if question.images %}
                 <div class="question-images">
                     {% for image in question.images %}
-                        <img src="{{ image }}" class="thumb-image" alt="Картинка вопроса"
-                            onclick="showImage('{{ image }}')">
+                        <img src="{{ external_url_for('static', filename=image) }}" class="thumb-image" alt="Картинка вопроса"
+                            onclick="showImage('{{ external_url_for('static', filename=image) }}')">
                     {% endfor %}
                 </div>
 
