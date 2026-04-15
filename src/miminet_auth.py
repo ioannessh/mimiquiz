@@ -1,9 +1,9 @@
 from flask import flash, redirect, request, session, url_for
 from flask_login import LoginManager, login_required
-from miminet_model import User, db
 from werkzeug.security import generate_password_hash
 
 from miminet_jwt import external_url_for
+from miminet_model import User, db
 
 # Global variables
 UPLOAD_FOLDER = "static/avatar/"

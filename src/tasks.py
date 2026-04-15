@@ -1,13 +1,10 @@
-import uuid
 import json
+import uuid
 
-from celery_app import (
-    SEND_NETWORK_EXCHANGE,
-    EXCHANGE_TYPE,
-    app,
-)
-from celery.result import AsyncResult, allow_join_result
 from celery.exceptions import TimeoutError
+from celery.result import AsyncResult, allow_join_result
+
+from celery_app import EXCHANGE_TYPE, SEND_NETWORK_EXCHANGE, app
 
 
 def create_emulation_task(net_schema):

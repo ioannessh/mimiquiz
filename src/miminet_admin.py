@@ -1,44 +1,46 @@
 import json
-import os
-
 from datetime import date
 
-from flask import request, flash, redirect, url_for, render_template
+from flask import flash, redirect, render_template, request, url_for
 from flask_admin import AdminIndexView, expose
+from flask_admin.actions import action
 from flask_admin.contrib.sqla import ModelView
 from flask_admin.contrib.sqla.fields import QuerySelectField
-from flask_admin.form import Select2Widget
 from flask_admin.model import typefmt
-from flask_admin.actions import action
-from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
+from flask_jwt_extended import get_jwt_identity, verify_jwt_in_request
 from flask_login import current_user, login_user
 from markupsafe import Markup
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 from werkzeug.datastructures import FileStorage
 from wtforms import (
-    SelectField,
-    TextAreaField,
     BooleanField,
     DateTimeField,
     Form,
+    SelectField,
     SubmitField,
+    TextAreaField,
 )
 
+from miminet_auth import redirect_login
+from miminet_model import Network, User, db
+from quiz.entity.entity import (
+    Answer,
+    Question,
+    QuestionCategory,
+    QuestionImage,
+    QuizSession,
+    Section,
+    SessionQuestion,
+    Test,
+)
 from quiz.service.network_upload_service import (
     create_check_task,
     create_check_task_json,
 )
-from miminet_model import db, User, Network
-from quiz.entity.entity import (
-    Test,
-    Section,
-    Question,
-    QuestionCategory,
-    SessionQuestion, Answer, QuizSession, Organization, QuestionImage,
-)
-from miminet_auth import redirect_login
 from quiz.util.dto import calculate_question_count, external_base_url
+import requests
+
 
 ADMIN_ROLE_LEVEL = 1
 
@@ -395,7 +397,9 @@ class TestView(MiminetAdminModelView):
         return self.session.query(self.model).filter_by(created_by_id=current_user.id)
 
     def get_count_query(self):
-        return self.session.query(func.count(self.model.id)).filter_by(created_by_id=current_user.id)
+        return self.session.query(func.count(self.model.id)).filter_by(
+            created_by_id=current_user.id
+        )
 
     pass
 
@@ -490,14 +494,9 @@ def get_question_type(view, context, model, name, **kwargs):
     return types.get(model.question_type, "")
 
 
-import os
-import requests
-from typing import Union, BinaryIO
-
-
-def upload_to_quiz_endpoint(file_storage: FileStorage,
-                            base_url: str,
-                            timeout: int = 30):
+def upload_to_quiz_endpoint(
+    file_storage: FileStorage, base_url: str, timeout: int = 30
+):
     url = f"{base_url.rstrip('/')}/quiz/upload"
 
     filename = file_storage.filename or "uploaded_file"
@@ -507,9 +506,7 @@ def upload_to_quiz_endpoint(file_storage: FileStorage,
     file_storage.seek(0)
     file_content = file_storage.read()
 
-    files = {
-        "file": (filename, file_content, content_type)
-    }
+    files = {"file": (filename, file_content, content_type)}
 
     try:
         response = requests.post(url, files=files, timeout=timeout)
@@ -574,102 +571,135 @@ class QuestionView(MiminetAdminModelView):
 
     endpoint = "question"
 
-    create_template = 'admin/question_create.html'
-    edit_template = 'admin/question_edit.html'
+    create_template = "admin/question_create.html"
+    edit_template = "admin/question_edit.html"
 
-    @expose('/get_question_form/', methods=['GET'])
+    @expose("/get_question_form/", methods=["GET"])
     def get_question_form(self):
-        question_type = request.args.get('type', '0')
-        question_id = request.args.get('id', None)
+        question_type = request.args.get("type", "0")
+        question_id = request.args.get("id", None)
 
         existing_question = None
         if question_id:
             existing_question = Question.query.get(question_id)
-        existing_answers = sorted(
-            Answer.query.filter(Answer.question_id == question_id).all(),
-            key=lambda ans: (ans.position, ans.id),
-        ) if current_user.is_authenticated else []
+        existing_answers = (
+            sorted(
+                Answer.query.filter(Answer.question_id == question_id).all(),
+                key=lambda ans: (ans.position, ans.id),
+            )
+            if current_user.is_authenticated
+            else []
+        )
 
         # Формируем данные для шаблона
         form_data = {
-            'question_type': question_type,
-            'existing_text': existing_question.text if existing_question else '',
-            'existing_explanation': existing_question.explanation if existing_question else '',
-            'existing_category_id': existing_question.category_id if existing_question else None,
-            'existing_section_id': existing_question.section_id if existing_question else None,
-            'existing_image_path': None,
-            'existing_answers': existing_answers,
-            'share': existing_question.is_shared if existing_question else False
+            "question_type": question_type,
+            "existing_text": existing_question.text if existing_question else "",
+            "existing_explanation": (
+                existing_question.explanation if existing_question else ""
+            ),
+            "existing_category_id": (
+                existing_question.category_id if existing_question else None
+            ),
+            "existing_section_id": (
+                existing_question.section_id if existing_question else None
+            ),
+            "existing_image_path": None,
+            "existing_answers": existing_answers,
+            "share": existing_question.is_shared if existing_question else False,
         }
 
         categories = db.session.query(QuestionCategory).all()
-        sections = Section.query.filter(
-            Section.created_by_id == current_user.id
-        ).all() if current_user.is_authenticated else []
+        sections = (
+            Section.query.filter(Section.created_by_id == current_user.id).all()
+            if current_user.is_authenticated
+            else []
+        )
 
-        return render_template('admin/partials/question_form_fields.html',
-                               form_data=form_data,
-                               categories=categories,
-                               sections=sections,
-                               question_type=question_type,
-                               existing_answers=existing_answers)
+        return render_template(
+            "admin/partials/question_form_fields.html",
+            form_data=form_data,
+            categories=categories,
+            sections=sections,
+            question_type=question_type,
+            existing_answers=existing_answers,
+        )
 
     def create_form(self):
         from flask_admin.form import BaseForm
+
         return BaseForm()
 
     def edit_form(self, obj):
         from flask_admin.form import BaseForm
+
         return BaseForm(obj=obj)
 
     def on_model_change(self, form, model, is_created, **kwargs):
         super().on_model_change(form, model, is_created)
 
-        model.text = Markup.escape(Markup.unescape(request.form.get('text', '')))
-        model.explanation = request.form.get('explanation', '')
-        model.question_type = request.form.get('question_type', '0')
-        model.is_shared = 'share' in request.form
+        model.text = Markup.escape(Markup.unescape(request.form.get("text", "")))
+        model.explanation = request.form.get("explanation", "")
+        model.question_type = request.form.get("question_type", "0")
+        model.is_shared = "share" in request.form
 
-        category_id = request.form.get('category_id')
-        model.category_id = int(category_id) if category_id and category_id != 'None' else None
+        category_id = request.form.get("category_id")
+        model.category_id = (
+            int(category_id) if category_id and category_id != "None" else None
+        )
 
-        section_id = request.form.get('section_id')
-        model.section_id = int(section_id) if section_id and section_id != 'None' else None
+        section_id = request.form.get("section_id")
+        model.section_id = (
+            int(section_id) if section_id and section_id != "None" else None
+        )
 
         return model
 
     def after_model_change(self, form, model, is_created, **kwargs) -> None:
         super().after_model_change(form, model, is_created)
         form_answers = []
-        correct_answer = request.form.get('correct_answer', None)
-        correct_answers = request.form.getlist('correct_answers[]')
-        answer_text = request.form.getlist('answer_text[]')
-        answer_text_left = request.form.getlist('answer_text_left[]')
-        answer_text_right = request.form.getlist('answer_text_right[]')
-        cnt_answers = max([len(correct_answers), len(answer_text), len(answer_text_left), len(answer_text_right)])
+        correct_answer = request.form.get("correct_answer", None)
+        correct_answers = request.form.getlist("correct_answers[]")
+        answer_text = request.form.getlist("answer_text[]")
+        answer_text_left = request.form.getlist("answer_text_left[]")
+        answer_text_right = request.form.getlist("answer_text_right[]")
+        cnt_answers = max(
+            [
+                len(correct_answers),
+                len(answer_text),
+                len(answer_text_left),
+                len(answer_text_right),
+            ]
+        )
         for i in range(cnt_answers):
             variant = answer_text[i] if len(answer_text) > i else ""
             position = i
             left = answer_text_left[i] if len(answer_text_left) > i else None
             right = answer_text_right[i] if len(answer_text_right) > i else None
-            form_answers.append({
-                'variant': variant,
-                'position': position,
-                'left': left,
-                'right': right,
-                'created_by_id': model.created_by_id,
-                'question_id': model.id,
-                'is_correct': False
-            })
+            form_answers.append(
+                {
+                    "variant": variant,
+                    "position": position,
+                    "left": left,
+                    "right": right,
+                    "created_by_id": model.created_by_id,
+                    "question_id": model.id,
+                    "is_correct": False,
+                }
+            )
         for i in correct_answers:
-            form_answers[int(i)]['is_correct'] = True
+            form_answers[int(i)]["is_correct"] = True
         if correct_answer:
-            form_answers[int(correct_answer)]['is_correct'] = True
+            form_answers[int(correct_answer)]["is_correct"] = True
 
-        existing_answers = sorted(
-            Answer.query.filter(Answer.question_id == model.id).all(),
-            key=lambda ans: (ans.position, ans.id),
-        ) if current_user.is_authenticated else []
+        existing_answers = (
+            sorted(
+                Answer.query.filter(Answer.question_id == model.id).all(),
+                key=lambda ans: (ans.position, ans.id),
+            )
+            if current_user.is_authenticated
+            else []
+        )
 
         updates = []
         for idx, answer in enumerate(existing_answers):
@@ -682,25 +712,24 @@ class QuestionView(MiminetAdminModelView):
 
         for idx in range(len(existing_answers), len(form_answers)):
             new_answer = Answer(
-                variant=form_answers[idx].get('variant', None),
-                is_correct=form_answers[idx].get('is_correct', None),
-                position=form_answers[idx].get('position', None),
-                left=form_answers[idx].get('left', None),
-                right=form_answers[idx].get('right', None),
-                question_id=form_answers[idx].get('question_id', None),
-                created_by_id=form_answers[idx].get('created_by_id', None),
+                variant=form_answers[idx].get("variant", None),
+                is_correct=form_answers[idx].get("is_correct", None),
+                position=form_answers[idx].get("position", None),
+                left=form_answers[idx].get("left", None),
+                right=form_answers[idx].get("right", None),
+                question_id=form_answers[idx].get("question_id", None),
+                created_by_id=form_answers[idx].get("created_by_id", None),
             )
             db.session.add(new_answer)
 
         if len(form_answers) < len(existing_answers):
             Answer.query.filter(
-                Answer.question_id == model.id,
-                Answer.position >= len(form_answers)
+                Answer.question_id == model.id, Answer.position >= len(form_answers)
             ).delete()
 
         filename = None
-        if 'image' in request.files:
-            file = request.files['image']
+        if "image" in request.files:
+            file = request.files["image"]
             res = upload_to_quiz_endpoint(file, external_base_url)
             if "error" in res:
                 raise ValueError(f"Изображение не загруженно: {res.get('error')}.")
@@ -717,19 +746,18 @@ class QuestionView(MiminetAdminModelView):
         db.session.commit()
 
     def on_model_delete(self, model) -> None:
-        Answer.query.filter(
-            Answer.question_id == model.id
-        ).delete()
+        Answer.query.filter(Answer.question_id == model.id).delete()
 
     @expose("/new/", methods=("GET", "POST"))
     def create_view(self):
-        if request.method == 'POST':
-            question_type = request.form.get('question_type')
+        if request.method == "POST":
+            question_type = request.form.get("question_type")
             if not question_type:
-                flash('Выберите тип вопроса', 'error')
-                return redirect(self.get_url('.create_view'))
+                flash("Выберите тип вопроса", "error")
+                return redirect(self.get_url(".create_view"))
 
         return super().create_view()
+
 
 def get_question_text(view, context, model, name, **kwargs):
     if not model.question_id:

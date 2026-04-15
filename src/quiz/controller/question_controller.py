@@ -1,13 +1,12 @@
 import json
 
-from flask import request, abort, make_response, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask import abort, jsonify, make_response, request
+from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from miminet_model import User
 from quiz.facade.question_facade import create_question, delete_question
 from quiz.service.question_service import get_questions_by_section
 from quiz.util.encoder import UUIDEncoder
-
-from miminet_model import User
 
 
 @jwt_required()

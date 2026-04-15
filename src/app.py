@@ -1,84 +1,81 @@
-import sys
 import os
+import sys
 from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
-
-from flask import Flask, render_template, Response, jsonify, render_template_string, redirect, request
+from flask import (
+    Flask,
+    Response,
+    jsonify,
+    render_template,
+    render_template_string,
+)
 from flask_admin import Admin
 from flask_cors import CORS
-from flask_migrate import Migrate
 from flask_jwt_extended import (
     JWTManager,
-    jwt_required,
-    get_jwt_identity,
     create_access_token,
     create_refresh_token,
+    get_jwt_identity,
+    jwt_required,
     set_access_cookies,
     set_refresh_cookies,
     verify_jwt_in_request,
 )
+from flask_migrate import Migrate
 
 from miminet_admin import (
-    MiminetAdminIndexView,
-    TestView,
-    SectionView,
-    QuestionView,
     AnswerView,
-    QuestionCategoryView,
-    SessionQuestionView,
     CreateCheckTaskView,
+    MiminetAdminIndexView,
+    QuestionCategoryView,
+    QuestionView,
+    SectionView,
+    SessionQuestionView,
+    TestView,
 )
 from miminet_auth import (
     insert_test_user,
     login_index,
     login_manager,
-    remove_test_user,
     redirect_login,
+    remove_test_user,
 )
 from miminet_config import SECRET_KEY
-from miminet_model import Network, db, init_db, User
-from miminet_network import (
-    create_network,
-    web_network,
-    web_network_shared,
-)
+from miminet_jwt import external_url_for, is_api_request
+from miminet_model import Network, User, db, init_db
+from miminet_network import create_network, web_network, web_network_shared
+from quiz.controller.image_controller import image_routes, upload_image_endpoint
 from quiz.controller.question_controller import (
-    get_questions_by_section_endpoint,
     create_question_endpoint,
     delete_question_endpoint,
+    get_questions_by_section_endpoint,
 )
-from quiz.controller.image_controller import upload_image_endpoint
 from quiz.controller.quiz_session_controller import (
-    start_session_endpoint,
-    get_question_by_session_question_id_endpoint,
-    finish_session_endpoint,
     answer_on_session_question_endpoint,
-    session_result_endpoint,
-    get_result_by_session_guid_endpoint,
     check_network_task_endpoint,
     finish_old_session_endpoint,
+    finish_session_endpoint,
+    get_question_by_session_question_id_endpoint,
+    get_result_by_session_guid_endpoint,
     get_session_question_json,
+    session_result_endpoint,
+    start_session_endpoint,
 )
-from quiz.controller.section_controller import (
-    get_sections_by_test_endpoint,
-)
+from quiz.controller.section_controller import get_sections_by_test_endpoint
 from quiz.controller.test_controller import (
     get_all_tests_endpoint,
-    get_tests_by_owner_endpoint,
     get_test_endpoint,
+    get_tests_by_owner_endpoint,
 )
 from quiz.entity.entity import (
-    Section,
-    Test,
-    Question,
     Answer,
+    Question,
     QuestionCategory,
+    Section,
     SessionQuestion,
+    Test,
 )
-
-from quiz.controller.image_controller import image_routes
-from miminet_jwt import external_url_for, is_api_request
 from quiz.util.dto import get_organization
 
 app = Flask(
@@ -91,14 +88,14 @@ app.config.update(
     JWT_COOKIE_DOMAIN=f".{os.environ.get('BASE_DOMAIN', 'localhost')}",
     JWT_COOKIE_SECURE=False,  # True,
     JWT_COOKIE_CSRF_PROTECT=False,
-    JWT_COOKIE_SAMESITE = 'Lax',
+    JWT_COOKIE_SAMESITE="Lax",
     JWT_ACCESS_TOKEN_EXPIRES=timedelta(minutes=3),
     JWT_REFRESH_TOKEN_EXPIRES=timedelta(minutes=30),
 )
 
-allowed_hosts = os.environ.get('ALLOWED_HOSTS', '')
+allowed_hosts = os.environ.get("ALLOWED_HOSTS", "")
 if allowed_hosts:
-    allowed_hosts = [item.strip() for item in allowed_hosts.split(',')]
+    allowed_hosts = [item.strip() for item in allowed_hosts.split(",")]
 else:
     allowed_hosts = []
 print(f"Allowed Origins: {allowed_hosts}")
@@ -203,10 +200,10 @@ app.add_url_rule("/web_network", methods=["GET"], view_func=web_network)
 app.add_url_rule("/web_network_shared", methods=["GET"], view_func=web_network_shared)
 
 # Quiz
+app.add_url_rule("/test/owner", methods=["GET"], view_func=get_tests_by_owner_endpoint)
 app.add_url_rule(
-    "/test/owner", methods=["GET"], view_func=get_tests_by_owner_endpoint
-)
-app.add_url_rule("/", methods=["GET"], view_func=get_all_tests_endpoint) # Возврат должен быть на другой рут
+    "/", methods=["GET"], view_func=get_all_tests_endpoint
+)  # Возврат должен быть на другой рут
 app.add_url_rule("/test/get", methods=["GET"], view_func=get_test_endpoint)
 
 app.add_url_rule(
@@ -230,7 +227,7 @@ app.add_url_rule(
 )
 
 app.add_url_rule(
-    "/session/start", methods=["POST"], view_func=start_session_endpoint # action form
+    "/session/start", methods=["POST"], view_func=start_session_endpoint  # action form
 )
 app.add_url_rule(
     "/session/question",
@@ -249,23 +246,17 @@ app.add_url_rule(
     view_func=check_network_task_endpoint,
 )
 
-app.add_url_rule(
-    "/session/finish", methods=["PUT"], view_func=finish_session_endpoint
-)
+app.add_url_rule("/session/finish", methods=["PUT"], view_func=finish_session_endpoint)
 app.add_url_rule(
     "/session/finishold", methods=["PUT"], view_func=finish_old_session_endpoint
 )
-app.add_url_rule(
-    "/session/result", methods=["GET"], view_func=session_result_endpoint
-)
+app.add_url_rule("/session/result", methods=["GET"], view_func=session_result_endpoint)
 app.add_url_rule(
     "/user/session/result",
     methods=["GET"],
     view_func=get_result_by_session_guid_endpoint,
 )
-app.add_url_rule(
-    "/images/upload", methods=["POST"], view_func=upload_image_endpoint
-)
+app.add_url_rule("/images/upload", methods=["POST"], view_func=upload_image_endpoint)
 
 app.register_blueprint(image_routes)
 

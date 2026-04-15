@@ -1,27 +1,23 @@
 import json
-from flask import request, make_response, jsonify, abort, render_template
-from flask_jwt_extended import jwt_required, get_jwt_identity
 
+from flask import abort, jsonify, make_response, render_template, request
+from flask_jwt_extended import get_jwt_identity, jwt_required
+
+from miminet_model import User
 from quiz.facade.quiz_session_facade import (
-    start_session,
-    finish_session,
-    session_result,
-    get_result_by_session_guid,
     finish_old_sessions,
+    finish_session,
+    get_result_by_session_guid,
+    session_result,
+    start_session,
 )
+from quiz.service.network_upload_service import create_check_task
 from quiz.service.session_question_service import (
     answer_on_session_question,
     get_question_by_session_question_id,
-    handle_exam_answer,
     get_session_question_data,
+    handle_exam_answer,
 )
-
-from quiz.service.network_upload_service import create_check_task
-
-from miminet_model import User
-
-from quiz.entity.entity import Organization
-
 from quiz.util.dto import get_organization
 
 
@@ -159,7 +155,7 @@ def session_result_endpoint():
             organization_logo_uri=org.logo_uri,
             organization_name=org.name,
         ),
-        status
+        status,
     )
 
 

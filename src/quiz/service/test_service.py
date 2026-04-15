@@ -1,10 +1,8 @@
 import os
 
-from miminet_model import db, User
-from quiz.entity.entity import Test
+from miminet_model import User, db
+from quiz.entity.entity import Organization, Test
 from quiz.util.dto import to_test_dto_list
-
-from quiz.entity.entity import Organization
 
 
 def create_test(name: str, description: str, user: User, is_retakeable: bool):
@@ -50,12 +48,14 @@ def get_all_tests():
 
 
 def get_all_tests_by_organization():
-    organization_domain = os.environ.get('QUIZ_DOMAIN', None)
+    organization_domain = os.environ.get("QUIZ_DOMAIN", None)
     org = None
     if organization_domain:
         org = Organization.query.filter_by(domain=organization_domain).first()
     if org:
-        tests = Test.query.filter_by(organization_id=org.id, is_deleted=False, is_ready=True).all()
+        tests = Test.query.filter_by(
+            organization_id=org.id, is_deleted=False, is_ready=True
+        ).all()
     else:
         tests = Test.query.filter_by(is_deleted=False, is_ready=True).all()
 

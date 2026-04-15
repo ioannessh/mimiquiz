@@ -1,7 +1,7 @@
 import json
 import uuid
 
-from sqlalchemy import func, BigInteger, Text, Boolean, TIMESTAMP, ForeignKey
+from sqlalchemy import TIMESTAMP, BigInteger, Boolean, ForeignKey, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declared_attr
 from sqlalchemy.types import TypeDecorator

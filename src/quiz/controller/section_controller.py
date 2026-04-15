@@ -1,26 +1,22 @@
 import json
 from datetime import datetime
 
-from flask import request, make_response, jsonify, abort, render_template
+from flask import abort, jsonify, make_response, render_template, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from miminet_model import User
 from quiz.service.section_service import (
     create_section,
-    get_sections_by_test,
-    get_deleted_sections_by_test,
     delete_section,
     edit_section,
+    get_deleted_sections_by_test,
     get_section,
+    get_sections_by_test,
     publish_or_unpublish_test_by_section,
 )
 from quiz.service.test_service import get_test
-from quiz.util.encoder import UUIDEncoder
-
-from miminet_model import User
-
-from quiz.entity.entity import Organization
-
 from quiz.util.dto import get_organization
+from quiz.util.encoder import UUIDEncoder
 
 
 @jwt_required()

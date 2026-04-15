@@ -1,21 +1,14 @@
 import json
 import os
 import uuid
-from urllib.parse import urljoin, urlparse, urlunparse, urlencode
+from urllib.parse import urlencode, urljoin, urlparse, urlunparse
 
-from flask import (
-    flash,
-    redirect,
-    render_template,
-    request,
-    url_for,
-)
-from miminet_model import Network, Simulate, db
-from flask_jwt_extended import jwt_required, get_jwt_identity, verify_jwt_in_request
+from flask import flash, redirect, render_template, request, url_for
+from flask_jwt_extended import get_jwt_identity, jwt_required, verify_jwt_in_request
 
 from miminet_jwt import external_url_for
+from miminet_model import Network, Simulate, db
 from quiz.util.dto import get_organization
-
 
 # def external_url_for(endpoint, filename=None, **kwargs):
 #     base = os.environ.get("EXTERNAL_BASE_URL", "localhost").rstrip("/")

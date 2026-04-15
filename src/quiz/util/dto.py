@@ -1,10 +1,9 @@
+import json
 import os
 import random
 import uuid
-from typing import Dict, List
-import json
-
 from datetime import datetime
+from typing import Dict, List
 from zoneinfo import ZoneInfo
 
 from flask import has_request_context
@@ -15,13 +14,13 @@ from sqlalchemy.orm import joinedload
 
 from miminet_model import Network, db
 from quiz.entity.entity import (
-    Section,
-    Test,
-    Question,
     Answer,
-    QuizSession,
-    SessionQuestion,
     Organization,
+    Question,
+    QuizSession,
+    Section,
+    SessionQuestion,
+    Test,
 )
 
 
@@ -124,26 +123,26 @@ def get_current_user_id():
     except Exception:
         return None
 
-
     if not current_user.is_authenticated:
         return None
 
     return current_user.id
 
+
 def get_organization() -> Organization:
-    organization_domain = os.environ.get('QUIZ_DOMAIN', None)
-    base_domain = os.environ.get('BASE_DOMAIN', 'localhost')
+    organization_domain = os.environ.get("QUIZ_DOMAIN", None)
+    base_domain = os.environ.get("BASE_DOMAIN", "localhost")
     org = None
     if organization_domain:
         org = Organization.query.filter_by(domain=organization_domain).first()
 
     if org is None:
         org = Organization(
-            id = None,
-            name = "Miminet",
-            logo = "images/logo.png",
-            admin_role = 1,
-            domain = base_domain,
+            id=None,
+            name="Miminet",
+            logo="images/logo.png",
+            admin_role=1,
+            domain=base_domain,
         )
     else:
         org.logo_uri = f"logo_organizations/{org.logo_uri}"
@@ -151,7 +150,8 @@ def get_organization() -> Organization:
     return org
 
 
-external_base_url = os.environ.get('EXTERNAL_BASE_URL')
+external_base_url = os.environ.get("EXTERNAL_BASE_URL")
+
 
 def get_active_sections(test: Test) -> List[Section]:
     return [section for section in test.sections if not section.is_deleted]

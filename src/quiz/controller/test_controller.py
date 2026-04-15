@@ -1,28 +1,23 @@
 import json
 
-from flask import request, make_response, jsonify, render_template, abort
-from flask_jwt_extended import jwt_required, get_jwt_identity
-
-from quiz.service.test_service import (
-    create_test,
-    get_tests_by_owner,
-    get_all_tests,
-    delete_test,
-    get_deleted_tests_by_owner,
-    edit_test,
-    get_tests_by_author_name,
-    publish_or_unpublish_test,
-    get_retakeable_tests,
-    get_test,
-)
-from quiz.util.encoder import UUIDEncoder
+from flask import abort, jsonify, make_response, render_template, request
+from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from miminet_model import User
-
-from quiz.service.test_service import get_all_tests_by_organization
-
-from quiz.entity.entity import Organization
+from quiz.service.test_service import (
+    create_test,
+    delete_test,
+    edit_test,
+    get_all_tests_by_organization,
+    get_deleted_tests_by_owner,
+    get_retakeable_tests,
+    get_test,
+    get_tests_by_author_name,
+    get_tests_by_owner,
+    publish_or_unpublish_test,
+)
 from quiz.util.dto import get_organization
+from quiz.util.encoder import UUIDEncoder
 
 
 @jwt_required()
@@ -71,7 +66,7 @@ def get_all_tests_endpoint():
             organization_logo_uri=org.logo_uri,
             organization_name=org.name,
         ),
-        200
+        200,
     )
 
 
